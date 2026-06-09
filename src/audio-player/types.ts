@@ -1,4 +1,4 @@
-import type { CSSProperties } from "react"
+import type { CSSProperties, ReactNode } from "react"
 
 /** A single playable track. */
 export interface Track {
@@ -88,6 +88,14 @@ export interface UseAudioPlayerOptions {
     onEnded?: () => void
 }
 
+/** A single buffered range reported by the <audio> element. */
+export interface BufferedRange {
+    /** Inclusive start time in seconds. */
+    start: number
+    /** Exclusive end time in seconds. */
+    end: number
+}
+
 /** Everything the UI needs from the engine hook. */
 export interface AudioPlayerEngine {
     audioRef: React.RefObject<HTMLAudioElement>
@@ -96,8 +104,10 @@ export interface AudioPlayerEngine {
     isPlaying: boolean
     currentTime: number
     duration: number
-    /** Seconds buffered ahead (end of the active buffered range). */
+    /** Seconds buffered ahead (end of the furthest buffered range). */
     buffered: number
+    /** All buffered ranges for advanced UIs (e.g. multi-segment progress). */
+    bufferedRanges: BufferedRange[]
     volume: number
     isMuted: boolean
     isBuffering: boolean
@@ -105,6 +115,18 @@ export interface AudioPlayerEngine {
     hasError: boolean
     errorMessage: string
     hasAudio: boolean
+    /**
+     * True when the host environment reports that the browser will not honor
+     * programmatic volume changes (e.g. iOS Safari). Consumers can use this to
+     * display a fallback hint and rely on the mute control only.
+     */
+    volumeUnsupported: boolean
+    /**
+     * True when the most recent autoplay attempt was blocked by the browser.
+     * The UI can show a "tap to play" affordance so users know why nothing
+     * started and how to recover.
+     */
+    autoplayBlocked: boolean
 
     // Actions
     play: (reportError?: boolean) => void
@@ -118,4 +140,67 @@ export interface AudioPlayerEngine {
     retry: () => void
     /** Imperatively reload + play (used by playlist track changes). */
     loadAndPlay: () => void
+    /** Acknowledge the autoplay-blocked flag after presenting a UI affordance. */
+    dismissAutoplayBlocked: () => void
+}
+
+/** How the global session behaves when a track ends. */
+export type RepeatMode = "off" | "all" | "one"
+
+/**
+ * The global audio session. A superset of `AudioPlayerEngine`: anything that
+ * accepts an `AudioPlayerEngine` (e.g. the presentational `ProgressBar` /
+ * `VolumeControl` wiring) also accepts a `SessionEngine`. On top of the engine
+ * it adds a queue and queue navigation so many UI skins can share one
+ * `<audio>` element and stay in sync.
+ */
+export interface SessionEngine extends AudioPlayerEngine {
+    /** The current playback queue. */
+    queue: Track[]
+    /** Index of the active track in `queue`, or -1 when the queue is empty. */
+    currentIndex: number
+    /** The active track, or null when the queue is empty. */
+    currentTrack: Track | null
+    /** Whether playback order is shuffled. */
+    shuffle: boolean
+    /** Repeat behavior at the end of a track. */
+    repeatMode: RepeatMode
+    /** True when there is a track to advance to. */
+    canNext: boolean
+    /** True when there is a track to go back to. */
+    canPrevious: boolean
+
+    /** Replace the queue. Optionally start at `startIndex` and begin playing. */
+    setQueue: (tracks: Track[], startIndex?: number, autoPlay?: boolean) => void
+    /** Jump to and play a queued track by index. */
+    playTrack: (index: number) => void
+    /** Append a track to the end of the queue (no playback change). */
+    enqueue: (track: Track) => void
+    /** Play a track immediately: jump to it if already queued, else append + play. */
+    playNow: (track: Track) => void
+    /** Advance to the next track (honors shuffle / repeat). */
+    next: () => void
+    /** Go to the previous track (restarts the current track if past 3s). */
+    previous: () => void
+    /** Empty the queue and stop playback. */
+    clearQueue: () => void
+    /** Toggle shuffled playback order. */
+    toggleShuffle: () => void
+    /** Cycle repeat mode: off → all → one → off. */
+    cycleRepeat: () => void
+}
+
+/** Props for `AudioSessionProvider`. */
+export interface AudioSessionProviderProps {
+    children: ReactNode
+    /** Tracks the session starts with. */
+    initialQueue?: Track[]
+    /** Index within `initialQueue` to start on. Defaults to 0. */
+    initialIndex?: number
+    /** Best-effort autoplay of the first track on mount. */
+    autoPlay?: boolean
+    /** Initial repeat mode. Defaults to "off". */
+    repeatMode?: RepeatMode
+    /** Initial shuffle state. Defaults to false. */
+    shuffle?: boolean
 }

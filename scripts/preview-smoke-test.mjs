@@ -63,7 +63,7 @@ function collectAssets(html) {
 
 const preview = spawn(
     process.platform === "win32" ? "npx.cmd" : "npx",
-    ["vite", "preview", "--host", host, "--port", String(port), "--strictPort"],
+    ["vite", "preview", "--outDir", "dist-demo", "--host", host, "--port", String(port), "--strictPort"],
     { detached: process.platform !== "win32", stdio: ["ignore", "pipe", "pipe"] }
 )
 

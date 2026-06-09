@@ -213,7 +213,7 @@ export function useAudioPlayer(
                     // ranges; always using the last range would falsely show the
                     // bar as fully buffered.
                     const ct = audio.currentTime
-                    let active = 0
+                    let active: number | null = null
                     for (let i = 0; i < length; i++) {
                         if (
                             ct >= audio.buffered.start(i) &&
@@ -223,7 +223,9 @@ export function useAudioPlayer(
                             break
                         }
                     }
-                    setBuffered(active || audio.buffered.end(length - 1))
+                    setBuffered(
+                        active !== null ? active : audio.buffered.end(length - 1)
+                    )
                 }
             } catch {
                 // buffered can throw before any data is loaded; ignore.
@@ -360,16 +362,23 @@ export function useAudioPlayer(
         clearPendingPlay()
         stopLoop()
         audio.pause()
-        audio.currentTime = 0
-        currentTimeRef.current = 0
-        setSeeking(false)
-        setCurrentTime(0)
-        setDuration(0)
-        setBuffered(0)
-        setIsPlaying(false)
-        setHasError(false)
-        setErrorMessage("")
-        setIsBuffering(false)
+
+        // On the first mount, don't reset state or call audio.load() when the
+        // source is already loaded/loading from a cache hit. Resetting would
+        // discard the browser's preloaded data and make the readyState >= 1
+        // synchronous check in the event-listener effect useless.
+        if (!isFirstLoad) {
+            audio.currentTime = 0
+            currentTimeRef.current = 0
+            setSeeking(false)
+            setCurrentTime(0)
+            setDuration(0)
+            setBuffered(0)
+            setIsPlaying(false)
+            setHasError(false)
+            setErrorMessage("")
+            setIsBuffering(false)
+        }
 
         if (!hasAudio) {
             audio.removeAttribute("src")
@@ -377,7 +386,9 @@ export function useAudioPlayer(
             return
         }
 
-        audio.load()
+        if (!isFirstLoad) {
+            audio.load()
+        }
         if (shouldPlay) {
             // Don't surface an error toast for autoplay blocked on first load.
             play(!isFirstLoad)

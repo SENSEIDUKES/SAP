@@ -138,6 +138,9 @@ export function AudioPlayer(props: AudioPlayerProps) {
             navigator.share({ title: text, url }).catch(() => {})
         } else if (navigator.clipboard) {
             navigator.clipboard.writeText(url).then(() => {
+                if (shareTimeoutRef.current !== null) {
+                    clearTimeout(shareTimeoutRef.current)
+                }
                 setShowCopied(true)
                 shareTimeoutRef.current = setTimeout(
                     () => setShowCopied(false),

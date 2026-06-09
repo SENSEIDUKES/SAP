@@ -34,3 +34,10 @@ Open the printed Vite preview URL to inspect the production build. The preview s
 - Hook / audio engine: `src/audio-player/useAudioPlayer.ts`
 - Demo harness: `src/demo/main.tsx`
 - Demo styling: `src/demo/audio-player-lab.css`
+
+## License / usage restrictions
+
+This repository is **not open source**. The code is publicly visible for review and evaluation only; public visibility does not grant permission to copy, reuse, redistribute, modify, publish, sell, host, embed, or create derivative works from any part of this project.
+
+All rights are reserved by SEIHOUSE. See [`LICENSE`](./LICENSE) for the full proprietary license terms before using any code from this repository.
+

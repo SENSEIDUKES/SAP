@@ -9,7 +9,18 @@ const timeoutMs = Number(process.env.PREVIEW_TIMEOUT_MS ?? 15_000)
 async function stop(child) {
     if (child.exitCode !== null || child.killed) return
 
-    const killTarget = process.platform === "win32" ? child.pid : -child.pid
+    if (process.platform === "win32") {
+        // The preview runs under a shell wrapper (see spawn below), so kill
+        // the whole process tree or vite keeps the port bound for later runs.
+        spawn("taskkill", ["/pid", String(child.pid), "/t", "/f"])
+        await Promise.race([
+            new Promise((resolve) => child.once("close", resolve)),
+            delay(2_000),
+        ])
+        return
+    }
+
+    const killTarget = -child.pid
     try {
         process.kill(killTarget, "SIGTERM")
     } catch {
@@ -61,11 +72,27 @@ function collectAssets(html) {
         .filter((asset) => asset.startsWith("/assets/"))
 }
 
-const preview = spawn(
-    process.platform === "win32" ? "npx.cmd" : "npx",
-    ["vite", "preview", "--host", host, "--port", String(port), "--strictPort"],
-    { detached: process.platform !== "win32", stdio: ["ignore", "pipe", "pipe"] }
-)
+const previewArgs = [
+    "vite",
+    "preview",
+    "--host",
+    host,
+    "--port",
+    String(port),
+    "--strictPort",
+]
+// Node >= 20.12 refuses to spawn .cmd shims directly (EINVAL), so Windows goes
+// through the shell with a pre-joined command string.
+const preview =
+    process.platform === "win32"
+        ? spawn(["npx", ...previewArgs].join(" "), {
+              shell: true,
+              stdio: ["ignore", "pipe", "pipe"],
+          })
+        : spawn("npx", previewArgs, {
+              detached: true,
+              stdio: ["ignore", "pipe", "pipe"],
+          })
 
 let logs = ""
 preview.stdout.on("data", (chunk) => {

@@ -122,6 +122,7 @@ function AudioPlayerInner(props: AudioPlayerProps) {
         trackColor = "rgba(204, 204, 204, 0.35)",
         backgroundColor = "rgba(255, 255, 255, 0)",
         plugins: externalPlugins = EMPTY_PLUGINS,
+        audioBackend = "html5",
         className,
         style,
     } = props
@@ -269,6 +270,7 @@ function AudioPlayerInner(props: AudioPlayerProps) {
         autoPlay: localAutoPlay,
         loop: localRepeatMode === "one",
         onEnded: () => advanceRef.current(),
+        audioBackend,
     })
 
     const {
@@ -833,7 +835,9 @@ function AudioPlayerInner(props: AudioPlayerProps) {
             )}
 
             <div className="ap-content">
-                <audio ref={audioRef} src={hasAudio ? src : undefined} />
+                {engine.getBackendInfo().active === "html5" && (
+                    <audio ref={audioRef} src={hasAudio ? src : undefined} />
+                )}
 
                 {!hasAudio && (
                     <div className="ap-banner ap-banner--error ap-anim-in">

@@ -60,6 +60,7 @@ export function AudioSessionProvider({
     shuffle: initialShuffle = false,
     automix: initialAutomix = false,
     plugins: externalPlugins = EMPTY_PLUGINS,
+    audioBackend = "html5",
 }: AudioSessionProviderProps) {
     const [queue, setQueueState] = useState<Track[]>(initialQueue)
     const [currentIndex, setCurrentIndex] = useState<number>(
@@ -105,6 +106,7 @@ export function AudioSessionProvider({
         autoPlay,
         loop: repeatMode === "one", // native loop suppresses `ended` (no double-advance)
         onEnded: () => advanceRef.current(),
+        audioBackend,
     })
 
     // Clamp the index if the queue shrinks out from under it.
@@ -482,7 +484,9 @@ export function AudioSessionProvider({
     return (
         <AudioSessionContext.Provider value={value}>
             {/* The single, app-wide audio element. Skins never render their own. */}
-            <audio ref={engine.audioRef} src={src || undefined} />
+            {engine.getBackendInfo().active === "html5" && (
+                <audio ref={engine.audioRef} src={src || undefined} />
+            )}
             {children}
         </AudioSessionContext.Provider>
     )

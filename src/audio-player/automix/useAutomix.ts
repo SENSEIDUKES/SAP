@@ -476,6 +476,9 @@ export function useAutomix(options: UseAutomixOptions): AutomixController {
         }
         if (!isPlaying || isSeeking || hasError) return
         if (duration < MIN_TRACK_S) return
+        // No media element (e.g. Web Audio backend): two-deck crossfades can't
+        // run, so don't preload deck B — let tracks end and advance normally.
+        if (!engine.audioRef.current) return
 
         const nextKey = trackKey(nextTrack)
         if (failedPairRef.current === `${sourceKey}->${nextKey}`) return

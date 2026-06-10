@@ -1,10 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import type { AudioPlayerEngine, BufferedRange, Track, UseAudioPlayerOptions } from "./types"
+import type { AudioBackend } from "./core/audio/AudioBackend"
+import { createAudioBackend } from "./core/audio/AudioBackendFactory"
 
 /**
- * Headless audio engine. Owns a single hidden <audio> element and is the sole
- * source of truth for playback state. UI components read state and call actions;
- * they never touch the <audio> element directly.
+ * Headless audio engine. Owns a playback backend (HTML5 `<audio>` element by
+ * default, Web Audio API on request) and is the sole source of truth for
+ * playback state. UI components read state and call actions; they never touch
+ * the backend directly.
  *
  * Notable behavior:
  * - `currentTime` is driven by a single rAF loop while playing, and set
@@ -17,13 +20,37 @@ import type { AudioPlayerEngine, BufferedRange, Track, UseAudioPlayerOptions } f
  * - A monotonic `playbackToken` is bumped on every source / play-attempt
  *   boundary. Async callbacks captured before the swap check the token and
  *   no-op if it has changed, which removes the rapid-track-skip race.
+ * - The backend is fixed at mount; remount (e.g. via `key`) to switch.
  */
 export function useAudioPlayer(
     options: UseAudioPlayerOptions
 ): AudioPlayerEngine {
-    const { src, sourceKey = src, autoPlay = false, loop = false, onEnded } = options
+    const {
+        src,
+        sourceKey = src,
+        autoPlay = false,
+        loop = false,
+        onEnded,
+        audioBackend = "html5",
+    } = options
 
     const audioRef = useRef<HTMLAudioElement>(null)
+    const backendRef = useRef<AudioBackend | null>(null)
+    if (backendRef.current === null) {
+        backendRef.current = createAudioBackend(audioBackend, { audioRef })
+    }
+    const backendChangeWarnedRef = useRef(false)
+    if (
+        backendRef.current.getInfo().requested !== audioBackend &&
+        !backendChangeWarnedRef.current
+    ) {
+        backendChangeWarnedRef.current = true
+        console.warn(
+            "[AudioPlayer] audioBackend changed after mount; the backend is " +
+                "fixed at mount. Remount the player (e.g. with a key) to switch."
+        )
+    }
+
     const currentTimeRef = useRef(0)
     const isSeekingRef = useRef(false)
     const isPlayingRef = useRef(false)
@@ -32,7 +59,6 @@ export function useAudioPlayer(
     const fadeFrameRef = useRef<number | null>(null)
     const isFirstLoadRef = useRef(true)
     const previousVolumeRef = useRef(1)
-    const preloadAudioRef = useRef<HTMLAudioElement | null>(null)
     const pendingSeekRef = useRef<number | null>(null)
     const onEndedRef = useRef(onEnded)
     onEndedRef.current = onEnded
@@ -94,8 +120,8 @@ export function useAudioPlayer(
 
     const play = useCallback(
         (reportError = true) => {
-            const audio = audioRef.current
-            if (!audio || !hasAudio) return
+            const backend = backendRef.current!
+            if (!backend.isAttached() || !hasAudio) return
 
             const token = bumpToken()
             clearPendingPlay()
@@ -104,7 +130,7 @@ export function useAudioPlayer(
 
             let playPromise: Promise<void>
             try {
-                playPromise = audio.play()
+                playPromise = backend.play()
             } catch {
                 if (playbackTokenRef.current !== token) return
                 if (reportError) {
@@ -159,8 +185,8 @@ export function useAudioPlayer(
     )
 
     const pause = useCallback(() => {
-        const audio = audioRef.current
-        if (!audio) return
+        const backend = backendRef.current!
+        if (!backend.isAttached()) return
 
         const pending = playPromiseRef.current
         if (pending) {
@@ -173,11 +199,11 @@ export function useAudioPlayer(
                     if (playPromiseRef.current === pending) {
                         playPromiseRef.current = null
                     }
-                    audio.pause()
+                    backend.pause()
                 })
             return
         }
-        audio.pause()
+        backend.pause()
     }, [bumpToken])
 
     const toggle = useCallback(() => {
@@ -188,15 +214,15 @@ export function useAudioPlayer(
 
     const seek = useCallback(
         (time: number) => {
-            const audio = audioRef.current
-            if (!audio || !hasAudio) return
+            const backend = backendRef.current!
+            if (!backend.isAttached() || !hasAudio) return
             if (duration <= 0) {
                 pendingSeekRef.current = time
                 return
             }
             pendingSeekRef.current = null
             const next = Math.max(0, Math.min(duration, time))
-            audio.currentTime = next
+            backend.setCurrentTime(next)
             currentTimeRef.current = next
             setCurrentTime(next)
         },
@@ -205,9 +231,9 @@ export function useAudioPlayer(
 
     const seekBy = useCallback(
         (delta: number) => {
-            const audio = audioRef.current
-            if (!audio) return
-            seek(audio.currentTime + delta)
+            const backend = backendRef.current!
+            if (!backend.isAttached()) return
+            seek(backend.getCurrentTime() + delta)
         },
         [seek]
     )
@@ -217,26 +243,26 @@ export function useAudioPlayer(
             cancelAnimationFrame(fadeFrameRef.current)
             fadeFrameRef.current = null
         }
-        const audio = audioRef.current
+        const backend = backendRef.current!
         const next = Math.max(0, Math.min(1, value))
         previousVolumeRef.current = next > 0 ? next : previousVolumeRef.current
         setVolumeState(next)
-        if (audio) {
+        if (backend.isAttached()) {
             if (!volumeUnsupportedRef.current && next !== 0) {
                 // iOS Safari (and a few other mobile browsers) ignore
                 // programmatic volume. Detect this once and surface it to the
                 // UI rather than silently letting the slider appear to work.
-                audio.volume = next
-                if (Math.abs(audio.volume - next) > 0.001) {
+                backend.setVolume(next)
+                if (Math.abs(backend.getVolume() - next) > 0.001) {
                     volumeUnsupportedRef.current = true
                     setVolumeUnsupported(true)
                 }
             } else {
-                audio.volume = next
+                backend.setVolume(next)
             }
             // Dragging the slider above zero implicitly unmutes.
-            if (next > 0 && audio.muted) {
-                audio.muted = false
+            if (next > 0 && backend.isMuted()) {
+                backend.setMuted(false)
                 setIsMuted(false)
             }
         }
@@ -247,37 +273,37 @@ export function useAudioPlayer(
             cancelAnimationFrame(fadeFrameRef.current)
             fadeFrameRef.current = null
         }
-        const audio = audioRef.current
-        if (!audio) return
-        const nextMuted = !audio.muted
-        audio.muted = nextMuted
+        const backend = backendRef.current!
+        if (!backend.isAttached()) return
+        const nextMuted = !backend.isMuted()
+        backend.setMuted(nextMuted)
         setIsMuted(nextMuted)
         // Restore an audible level if unmuting while volume sits at zero.
-        if (!nextMuted && audio.volume === 0) {
+        if (!nextMuted && backend.getVolume() === 0) {
             const restored = previousVolumeRef.current || 1
-            audio.volume = restored
+            backend.setVolume(restored)
             setVolumeState(restored)
         }
     }, [])
 
     const retry = useCallback(() => {
-        const audio = audioRef.current
-        if (!audio || !hasAudio) return
+        const backend = backendRef.current!
+        if (!backend.isAttached() || !hasAudio) return
         bumpToken()
         clearPendingPlay()
         setHasError(false)
         setErrorMessage("")
         setAutoplayBlocked(false)
         setIsBuffering(true)
-        audio.load()
+        backend.load()
         play(true)
     }, [bumpToken, clearPendingPlay, hasAudio, play])
 
     const loadAndPlay = useCallback(() => {
-        const audio = audioRef.current
-        if (!audio || !hasAudio) return
+        const backend = backendRef.current!
+        if (!backend.isAttached() || !hasAudio) return
         bumpToken()
-        audio.load()
+        backend.load()
         play(true)
     }, [bumpToken, hasAudio, play])
 
@@ -288,27 +314,17 @@ export function useAudioPlayer(
     const preload = useCallback((track: Track) => {
         const url = track.audioFile?.trim() ?? ""
         if (!url) return
-        let el = preloadAudioRef.current
-        if (!el) {
-            el = new Audio()
-            el.preload = "auto"
-            preloadAudioRef.current = el
-        }
-        if (el.src !== url) {
-            el.src = url
-            el.load()
-        }
+        backendRef.current!.preload(url)
     }, [])
 
     const unload = useCallback(() => {
-        const audio = audioRef.current
-        if (!audio) return
+        const backend = backendRef.current!
+        if (!backend.isAttached()) return
         bumpToken()
         clearPendingPlay()
         stopLoop()
-        audio.pause()
-        audio.removeAttribute("src")
-        audio.load()
+        backend.pause()
+        backend.clearSource()
         currentTimeRef.current = 0
         setCurrentTime(0)
         setDuration(0)
@@ -325,26 +341,23 @@ export function useAudioPlayer(
             cancelAnimationFrame(fadeFrameRef.current)
             fadeFrameRef.current = null
         }
-        if (preloadAudioRef.current) {
-            preloadAudioRef.current.src = ""
-            preloadAudioRef.current = null
-        }
+        backend.releasePreload()
     }, [bumpToken, clearPendingPlay, stopLoop])
 
     const fade = useCallback((to: number, durationMs: number) => {
-        const audio = audioRef.current
-        if (!audio) return
+        const backend = backendRef.current!
+        if (!backend.isAttached()) return
         const target = Math.max(0, Math.min(1, to))
         if (durationMs <= 0) {
             if (fadeFrameRef.current !== null) {
                 cancelAnimationFrame(fadeFrameRef.current)
                 fadeFrameRef.current = null
             }
-            audio.volume = target
+            backend.setVolume(target)
             setVolumeState(target)
             return
         }
-        const startVolume = audio.volume
+        const startVolume = backend.getVolume()
         const startTime = performance.now()
         if (fadeFrameRef.current !== null) {
             cancelAnimationFrame(fadeFrameRef.current)
@@ -354,7 +367,7 @@ export function useAudioPlayer(
             const progress = Math.min(1, elapsed / durationMs)
             const next = startVolume + (target - startVolume) * progress
             const clamped = Math.max(0, Math.min(1, next))
-            audio.volume = clamped
+            backend.setVolume(clamped)
             setVolumeState(clamped)
             if (progress < 1) {
                 fadeFrameRef.current = requestAnimationFrame(step)
@@ -365,26 +378,22 @@ export function useAudioPlayer(
         fadeFrameRef.current = requestAnimationFrame(step)
     }, [])
 
-    // Wire up all <audio> events. Single rAF loop owns currentTime while playing.
+    // Wire up all backend events. Single rAF loop owns currentTime while playing.
     useEffect(() => {
-        const audio = audioRef.current
-        if (!audio) return
+        const backend = backendRef.current!
+        if (!backend.isAttached()) return
 
         let lastUpdate = 0
 
         const readBuffered = () => {
             try {
-                const length = audio.buffered.length
-                if (length > 0) {
+                const ranges = backend.getBufferedRanges()
+                if (ranges.length > 0) {
                     // Collect all ranges so the UI can render multi-segment
                     // buffers (e.g. after seeks that leave gaps).
-                    const ranges: BufferedRange[] = []
                     let furthest = 0
-                    for (let i = 0; i < length; i++) {
-                        const start = audio.buffered.start(i)
-                        const end = audio.buffered.end(i)
-                        ranges.push({ start, end })
-                        if (end > furthest) furthest = end
+                    for (const range of ranges) {
+                        if (range.end > furthest) furthest = range.end
                     }
                     setBufferedRanges(ranges)
                     setBuffered(furthest)
@@ -399,17 +408,17 @@ export function useAudioPlayer(
 
         const loop = (timestamp: number) => {
             if (!isSeekingRef.current) {
-                currentTimeRef.current = audio.currentTime
+                currentTimeRef.current = backend.getCurrentTime()
                 // Update state once per ~16ms (one frame). The previous 100ms
                 // throttle caused visible stutter on 120Hz displays; the audio
                 // element's `timeupdate` event still fires at 4Hz on most
                 // browsers, so we drive smooth UI from rAF instead.
                 if (timestamp - lastUpdate >= 16) {
-                    setCurrentTime(audio.currentTime)
+                    setCurrentTime(backend.getCurrentTime())
                     lastUpdate = timestamp
                 }
             }
-            if (!audio.paused && !audio.ended) {
+            if (!backend.isPaused() && !backend.isEnded()) {
                 animationFrameRef.current = requestAnimationFrame(loop)
             } else {
                 animationFrameRef.current = null
@@ -430,8 +439,8 @@ export function useAudioPlayer(
             setIsPlaying(false)
             stopLoop()
             // Snap to the exact paused position (the throttled loop may lag).
-            currentTimeRef.current = audio.currentTime
-            setCurrentTime(audio.currentTime)
+            currentTimeRef.current = backend.getCurrentTime()
+            setCurrentTime(backend.getCurrentTime())
         }
         const handleEnded = () => {
             isPlayingRef.current = false
@@ -439,17 +448,18 @@ export function useAudioPlayer(
             stopLoop()
             // Snap to exact duration so the progress bar reaches 100% even when
             // the rAF loop's throttle left it a frame short.
-            setCurrentTime(audio.duration || audio.currentTime)
+            setCurrentTime(backend.getDuration() || backend.getCurrentTime())
             onEndedRef.current?.()
         }
         const handleLoadedMetadata = () => {
-            const loadedDuration = Number.isFinite(audio.duration) ? audio.duration : 0
+            const rawDuration = backend.getDuration()
+            const loadedDuration = Number.isFinite(rawDuration) ? rawDuration : 0
             setDuration(loadedDuration)
             const pending = pendingSeekRef.current
             if (pending !== null && loadedDuration > 0) {
                 pendingSeekRef.current = null
                 const clamped = Math.max(0, Math.min(loadedDuration, pending))
-                audio.currentTime = clamped
+                backend.setCurrentTime(clamped)
                 currentTimeRef.current = clamped
                 setCurrentTime(clamped)
             }
@@ -461,20 +471,19 @@ export function useAudioPlayer(
             isPlayingRef.current = false
             setIsPlaying(false)
             setHasError(true)
-            const error = audio.error
-            switch (error?.code) {
-                case error?.MEDIA_ERR_ABORTED:
+            switch (backend.getError()) {
+                case "aborted":
                     setErrorMessage("Playback was aborted. Please try again.")
                     break
-                case error?.MEDIA_ERR_NETWORK:
+                case "network":
                     setErrorMessage(
                         "Network error. Check your connection and try again."
                     )
                     break
-                case error?.MEDIA_ERR_DECODE:
+                case "decode":
                     setErrorMessage("Audio file is corrupted or unsupported.")
                     break
-                case error?.MEDIA_ERR_SRC_NOT_SUPPORTED:
+                case "src-not-supported":
                     setErrorMessage(
                         "Audio file not found or format not supported."
                     )
@@ -488,23 +497,23 @@ export function useAudioPlayer(
             setErrorMessage("")
         }
 
-        audio.addEventListener("play", handlePlay)
-        audio.addEventListener("pause", handlePause)
-        audio.addEventListener("ended", handleEnded)
-        audio.addEventListener("loadedmetadata", handleLoadedMetadata)
-        audio.addEventListener("waiting", handleWaiting)
-        audio.addEventListener("stalled", handleWaiting)
-        audio.addEventListener("canplay", clearBuffering)
-        audio.addEventListener("canplaythrough", clearBuffering)
-        audio.addEventListener("playing", clearBuffering)
-        audio.addEventListener("progress", readBuffered)
-        audio.addEventListener("timeupdate", readBuffered)
-        audio.addEventListener("error", handleError)
-        audio.addEventListener("loadstart", handleLoadStart)
+        backend.addEventListener("play", handlePlay)
+        backend.addEventListener("pause", handlePause)
+        backend.addEventListener("ended", handleEnded)
+        backend.addEventListener("loadedmetadata", handleLoadedMetadata)
+        backend.addEventListener("waiting", handleWaiting)
+        backend.addEventListener("stalled", handleWaiting)
+        backend.addEventListener("canplay", clearBuffering)
+        backend.addEventListener("canplaythrough", clearBuffering)
+        backend.addEventListener("playing", clearBuffering)
+        backend.addEventListener("progress", readBuffered)
+        backend.addEventListener("timeupdate", readBuffered)
+        backend.addEventListener("error", handleError)
+        backend.addEventListener("loadstart", handleLoadStart)
 
         // If the source was already cached the loadedmetadata event fires before
-        // the effect runs. Catch that case by reading readyState synchronously.
-        if (audio.readyState >= 1) {
+        // the effect runs. Catch that case by reading the metadata synchronously.
+        if (backend.hasMetadata()) {
             handleLoadedMetadata()
             readBuffered()
         }
@@ -515,27 +524,27 @@ export function useAudioPlayer(
                 cancelAnimationFrame(fadeFrameRef.current)
                 fadeFrameRef.current = null
             }
-            audio.removeEventListener("play", handlePlay)
-            audio.removeEventListener("pause", handlePause)
-            audio.removeEventListener("ended", handleEnded)
-            audio.removeEventListener("loadedmetadata", handleLoadedMetadata)
-            audio.removeEventListener("waiting", handleWaiting)
-            audio.removeEventListener("stalled", handleWaiting)
-            audio.removeEventListener("canplay", clearBuffering)
-            audio.removeEventListener("canplaythrough", clearBuffering)
-            audio.removeEventListener("playing", clearBuffering)
-            audio.removeEventListener("progress", readBuffered)
-            audio.removeEventListener("timeupdate", readBuffered)
-            audio.removeEventListener("error", handleError)
-            audio.removeEventListener("loadstart", handleLoadStart)
+            backend.removeEventListener("play", handlePlay)
+            backend.removeEventListener("pause", handlePause)
+            backend.removeEventListener("ended", handleEnded)
+            backend.removeEventListener("loadedmetadata", handleLoadedMetadata)
+            backend.removeEventListener("waiting", handleWaiting)
+            backend.removeEventListener("stalled", handleWaiting)
+            backend.removeEventListener("canplay", clearBuffering)
+            backend.removeEventListener("canplaythrough", clearBuffering)
+            backend.removeEventListener("playing", clearBuffering)
+            backend.removeEventListener("progress", readBuffered)
+            backend.removeEventListener("timeupdate", readBuffered)
+            backend.removeEventListener("error", handleError)
+            backend.removeEventListener("loadstart", handleLoadStart)
         }
     }, [stopLoop])
 
     // Reset + load whenever the source changes. Continues playing across track
     // changes; the initial load only plays when autoPlay is requested.
     useEffect(() => {
-        const audio = audioRef.current
-        if (!audio) return
+        const backend = backendRef.current!
+        if (!backend.isAttached()) return
 
         const isFirstLoad = isFirstLoadRef.current
         isFirstLoadRef.current = false
@@ -547,18 +556,18 @@ export function useAudioPlayer(
         const token = bumpToken()
         clearPendingPlay()
         stopLoop()
-        audio.pause()
+        backend.pause()
         if (fadeFrameRef.current !== null) {
             cancelAnimationFrame(fadeFrameRef.current)
             fadeFrameRef.current = null
         }
 
-        // On the first mount, don't reset state or call audio.load() when the
-        // source is already loaded/loading from a cache hit. Resetting would
-        // discard the browser's preloaded data and make the readyState >= 1
-        // synchronous check in the event-listener effect useless.
+        // On the first mount, don't reset state or call load() when the source
+        // is already loaded/loading from a cache hit. Resetting would discard
+        // the browser's preloaded data and make the hasMetadata() synchronous
+        // check in the event-listener effect useless.
         if (!isFirstLoad) {
-            audio.currentTime = 0
+            backend.setCurrentTime(0)
             currentTimeRef.current = 0
             setSeeking(false)
             setCurrentTime(0)
@@ -574,13 +583,15 @@ export function useAudioPlayer(
         }
 
         if (!hasAudio) {
-            audio.removeAttribute("src")
-            audio.load()
+            backend.clearSource()
             return
         }
 
+        // No-op for html5 (the host JSX owns the src attribute); arms the URL
+        // for the webaudio backend.
+        backend.setSource(src)
         if (!isFirstLoad) {
-            audio.load()
+            backend.load()
         }
         if (shouldPlay) {
             // Don't surface an error toast for autoplay blocked on first load;
@@ -588,7 +599,7 @@ export function useAudioPlayer(
             if (isFirstLoad) {
                 let playPromise: Promise<void> | null
                 try {
-                    playPromise = audio.play()
+                    playPromise = backend.play()
                 } catch {
                     return
                 }
@@ -637,16 +648,26 @@ export function useAudioPlayer(
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [src, sourceKey])
 
-    // Keep the element's volume/loop in sync with state on mount + changes.
+    // Keep the backend's volume/loop in sync with state on mount + changes.
     useEffect(() => {
-        const audio = audioRef.current
-        if (audio) audio.volume = volume
+        const backend = backendRef.current!
+        if (backend.isAttached()) backend.setVolume(volume)
     }, [volume])
 
     useEffect(() => {
-        const audio = audioRef.current
-        if (audio) audio.loop = loop
+        const backend = backendRef.current!
+        if (backend.isAttached()) backend.setLoop(loop)
     }, [loop])
+
+    // Release backend resources on unmount. destroy() is revivable, so React
+    // StrictMode's unmount/remount cycle recreates what it needs lazily.
+    useEffect(() => {
+        return () => {
+            backendRef.current?.destroy()
+        }
+    }, [])
+
+    const getBackendInfo = useCallback(() => backendRef.current!.getInfo(), [])
 
     return {
         audioRef,
@@ -678,5 +699,6 @@ export function useAudioPlayer(
         preload,
         unload,
         fade,
+        getBackendInfo,
     }
 }

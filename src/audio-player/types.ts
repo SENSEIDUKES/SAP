@@ -1,5 +1,6 @@
 import type { CSSProperties, ReactNode } from "react"
 import type { AudioPlayerPlugin } from "./core/plugins/PluginInterface"
+import type { AudioBackendInfo, AudioBackendKind } from "./core/audio/AudioBackend"
 
 /** A single playable track. */
 export interface Track {
@@ -63,6 +64,14 @@ export interface AudioPlayerProps extends AudioPlayerTheme {
     automix?: boolean
     /** Optional lifecycle plugins. Empty by default. */
     plugins?: readonly AudioPlayerPlugin[]
+    /**
+     * Playback backend. `"html5"` (default) streams through an `<audio>`
+     * element; `"webaudio"` decodes the full file for sample-accurate timing
+     * and reliable volume. Falls back to html5 (with a console warning) when
+     * Web Audio is unavailable. Fixed at mount — remount (e.g. via `key`) to
+     * switch.
+     */
+    audioBackend?: AudioBackendKind
 
     /** Presentation. */
     backgroundImage?: BackgroundImage
@@ -99,6 +108,8 @@ export interface UseAudioPlayerOptions {
     loop?: boolean
     /** Fired when the current track reaches its end. */
     onEnded?: () => void
+    /** Playback backend. Defaults to `"html5"`. Fixed at mount. */
+    audioBackend?: AudioBackendKind
 }
 
 /**
@@ -171,6 +182,8 @@ export interface AudioPlayerEngine {
     unload: () => void
     // Smoothly ramp volume to a target level over a duration (ms).
     fade: (to: number, durationMs: number) => void
+    /** Which playback backend is running, whether it fell back, and what it can do. */
+    getBackendInfo: () => AudioBackendInfo
 }
 
 /** How the global session behaves when a track ends. */
@@ -240,4 +253,6 @@ export interface AudioSessionProviderProps {
     automix?: boolean
     /** Optional lifecycle plugins for the shared session. Empty by default. */
     plugins?: readonly AudioPlayerPlugin[]
+    /** Playback backend for the shared session. Defaults to `"html5"`. */
+    audioBackend?: AudioBackendKind
 }

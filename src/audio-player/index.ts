@@ -3,6 +3,9 @@ export { useAudioPlayer } from "./useAudioPlayer"
 export { useAutomix, AUTOMIX_FADE_MS } from "./automix/useAutomix"
 export { PluginManager } from "./core/plugins/PluginManager"
 export { usePluginManager } from "./core/plugins/usePluginManager"
+export { createAudioBackend } from "./core/audio/AudioBackendFactory"
+export { HTML5AudioBackend } from "./core/audio/HTML5AudioBackend"
+export { WebAudioBackend } from "./core/audio/WebAudioBackend"
 export {
     AutomixPlugin,
     createAutomixPlugin,
@@ -52,6 +55,14 @@ export type {
     PluginHookResult,
     PluginPlayerContext,
 } from "./core/plugins/PluginInterface"
+export type {
+    AudioBackend,
+    AudioBackendKind,
+    AudioBackendEvent,
+    AudioBackendErrorCode,
+    AudioBackendInfo,
+    AudioBackendCapabilities,
+} from "./core/audio/AudioBackend"
 export type { AutomixPluginConfig } from "./plugins/AutomixPlugin"
 export type { KeyboardShortcutPluginConfig } from "./plugins/KeyboardShortcutPlugin"
 export type {

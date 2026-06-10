@@ -12,8 +12,9 @@ import {
     createAnalyticsPlugin,
     createKeyboardShortcutPlugin,
     createLyricsPlugin,
+    useAudioPlayer,
 } from "../audio-player"
-import type { AudioPlayerProps, Track } from "../audio-player"
+import type { AudioBackendKind, AudioPlayerProps, Track } from "../audio-player"
 import "./audio-player-lab.css"
 
 /* ----------------------------- OG Framer defaults ----------------------------- */
@@ -894,6 +895,83 @@ function PluginArchitectureSection() {
     )
 }
 
+/* ----------------------------- Audio backend demo ----------------------------- */
+/* Headless engine instance whose only job is to surface getBackendInfo() for
+   the selected backend — including the auto-fallback fields when Web Audio is
+   unavailable. */
+function BackendInfoReadout({ backend }: { backend: AudioBackendKind }) {
+    const engine = useAudioPlayer({ src: "", audioBackend: backend })
+    return (
+        <pre
+            className="lab-state__note"
+            style={{ whiteSpace: "pre-wrap", userSelect: "text" }}
+        >
+            {JSON.stringify(engine.getBackendInfo(), null, 2)}
+        </pre>
+    )
+}
+
+function AudioBackendSection() {
+    const [backend, setBackend] = useState<AudioBackendKind>("html5")
+
+    return (
+        <section className="lab-section">
+            <h2 className="lab-section__title">
+                10. Audio backend
+                <small>html5 · webaudio</small>
+            </h2>
+            <p className="lab-section__desc">
+                The same player running on either playback backend. HTML5 Audio
+                (default) streams progressively; the Web Audio backend downloads
+                and decodes the full file for sample-accurate timing and
+                reliable volume (including iOS Safari). The backend is fixed at
+                mount, so switching remounts the player via <code>key</code>.
+                The broken track exercises each backend&apos;s error path.
+            </p>
+            <div className="lab-section__grid">
+                <div className="lab-states">
+                    <div className="lab-state">
+                        <h3 className="lab-state__title">
+                            Backend: {backend}
+                        </h3>
+                        <div className="framer-panel__preset-row">
+                            {(["html5", "webaudio"] as const).map((kind) => (
+                                <button
+                                    key={kind}
+                                    type="button"
+                                    className={`framer-panel__preset${backend === kind ? " framer-panel__preset--warn" : ""}`}
+                                    onClick={() => setBackend(kind)}
+                                    aria-pressed={backend === kind}
+                                >
+                                    {kind}
+                                </button>
+                            ))}
+                        </div>
+                        <div className="lab-state__player">
+                            <AudioPlayer
+                                key={backend}
+                                audioBackend={backend}
+                                tracks={playlist}
+                                showTracklist
+                                repeatMode="all"
+                                accentColor="#0EA5E9"
+                                progressColor="#0EA5E9"
+                                backgroundColor="rgba(14,30,40,0.6)"
+                            />
+                        </div>
+                        <div className="lab-state__note">
+                            expect: identical UX on both backends · webaudio
+                            shows full buffer after decode · broken track
+                            reports a network error under webaudio
+                        </div>
+                        <BackendInfoReadout key={`info-${backend}`} backend={backend} />
+                    </div>
+                </div>
+            </div>
+        </section>
+    )
+}
+
 /* ----------------------------- Lab page ----------------------------- */
 function Lab() {
     return (
@@ -1152,6 +1230,8 @@ function Lab() {
             </footer>
 
             <PluginArchitectureSection />
+
+            <AudioBackendSection />
         </div>
     )
 }

@@ -242,7 +242,8 @@ function AudioPlayerInner(props: AudioPlayerProps) {
                 if (localRepeatMode === "all") nextPosition = 0
                 else return null
             } else if (nextPosition < 0) {
-                nextPosition = localRepeatMode === "all" ? playbackOrder.length - 1 : 0
+                if (localRepeatMode === "all") nextPosition = playbackOrder.length - 1
+                else return null
             }
             return playbackOrder[nextPosition]
         },
@@ -250,6 +251,7 @@ function AudioPlayerInner(props: AudioPlayerProps) {
     )
 
     const advanceRef = useRef<() => void>(() => {})
+    const pendingPlayRef = useRef(false)
 
     const engine = useAudioPlayer({
         src,
@@ -305,6 +307,18 @@ function AudioPlayerInner(props: AudioPlayerProps) {
     const canPreviousTrack = isPlaylistMode && stepTrackIndex(trackIndex, -1) !== null
     const canNextTrack = isPlaylistMode && stepTrackIndex(trackIndex, 1) !== null
 
+    // Continue playback after automatic end-of-track advances. The engine marks
+    // itself paused before it calls onEnded, so its source-change continuation
+    // path sees `wasPlaying === false`; this deferred play mirrors the global
+    // session provider and keeps playlist playback seamless.
+    useEffect(() => {
+        if (pendingPlayRef.current) {
+            pendingPlayRef.current = false
+            if (src) engine.play(true)
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [sourceKey, src])
+
     advanceRef.current = () => {
         const next = stepTrackIndex(trackIndex, 1)
         if (next === null) return
@@ -313,6 +327,7 @@ function AudioPlayerInner(props: AudioPlayerProps) {
             engine.play(true)
             return
         }
+        pendingPlayRef.current = true
         setTrackIndex(next)
     }
 

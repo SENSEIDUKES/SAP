@@ -45,7 +45,16 @@ export interface BackgroundImage {
     alt?: string
 }
 
+export type AudioPlayerVariant = "full" | "compact"
+
 export interface AudioPlayerProps extends AudioPlayerTheme {
+    /**
+     * Layout density. `"full"` preserves the feature-rich player; `"compact"`
+     * is intended for product cards and hides secondary controls unless their
+     * matching `show*` prop is explicitly enabled.
+     */
+    variant?: AudioPlayerVariant
+
     /** Playlist. When non-empty, the player runs in playlist mode. */
     tracks?: Track[]
 
@@ -88,6 +97,18 @@ export interface AudioPlayerProps extends AudioPlayerTheme {
     darkenAmount?: number
     showTracklist?: boolean
     showVolume?: boolean
+    /** Show the overflow menu. Defaults to true, including compact mode. */
+    showMenu?: boolean
+    /** Show 10-second skip buttons. Defaults to true in full mode and false in compact mode. */
+    showSkipControls?: boolean
+    /** Show shuffle, previous, next, and repeat transport controls. Defaults to true in full playlist mode and false in compact mode. */
+    showPlaylistControls?: boolean
+    /** Show the Up Next queue button/drawer. Defaults to true in full playlist mode and false in compact mode. */
+    showQueueButton?: boolean
+    /** Show the lyrics toggle when lyrics are available. Defaults to true in full mode and false in compact mode. */
+    showLyricsButton?: boolean
+    /** Show the support/purchase link when a purchase URL is available. Defaults to true in full mode and false in compact mode. */
+    showSupportButton?: boolean
     /**
      * Render a wavesurfer.js waveform as the scrubber instead of the plain
      * progress bar. Lazy-loads wavesurfer; falls back to the progress bar

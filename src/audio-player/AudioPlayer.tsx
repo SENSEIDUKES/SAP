@@ -101,6 +101,7 @@ export function AudioPlayer(props: AudioPlayerProps) {
 
 function AudioPlayerInner(props: AudioPlayerProps) {
     const {
+        variant = "full",
         tracks: tracksProp,
         audioFile = DEFAULT_AUDIO,
         title = "Audio Track",
@@ -116,7 +117,13 @@ function AudioPlayerInner(props: AudioPlayerProps) {
         blurSize = 20,
         darkenAmount = 0,
         showTracklist = false,
-        showVolume = true,
+        showVolume,
+        showMenu,
+        showSkipControls,
+        showPlaylistControls,
+        showQueueButton,
+        showLyricsButton,
+        showSupportButton,
         showWaveform = false,
         waveformHeight = 48,
         titleFont,
@@ -132,6 +139,17 @@ function AudioPlayerInner(props: AudioPlayerProps) {
         className,
         style,
     } = props
+
+    const isCompact = variant === "compact"
+    const controls = {
+        menu: showMenu ?? true,
+        volume: showVolume ?? !isCompact,
+        skip: showSkipControls ?? !isCompact,
+        playlist: showPlaylistControls ?? !isCompact,
+        queue: showQueueButton ?? !isCompact,
+        lyrics: showLyricsButton ?? !isCompact,
+        support: showSupportButton ?? !isCompact,
+    }
 
     const tracks = resolveTrackList(tracksProp)
     const isPlaylistMode = tracks.length > 0
@@ -499,18 +517,28 @@ function AudioPlayerInner(props: AudioPlayerProps) {
             if (!v) {
                 // Defer until after the items render.
                 requestAnimationFrame(() => {
-                    menuItemRefs.current[0]?.focus()
+                    menuRef.current
+                        ?.querySelector<HTMLButtonElement>("[role^='menuitem']")
+                        ?.focus()
                 })
             }
             return !v
         })
     }, [])
 
+    const getMenuItems = useCallback(
+        () =>
+            Array.from(
+                menuRef.current?.querySelectorAll<HTMLButtonElement>(
+                    "[role^='menuitem']"
+                ) ?? []
+            ),
+        []
+    )
+
     const focusMenuItem = useCallback(
         (delta: number) => {
-            const items = menuItemRefs.current.filter(
-                (el): el is HTMLButtonElement => el !== null
-            )
+            const items = getMenuItems()
             if (items.length === 0) return
             const activeIndex = items.findIndex(
                 (el) => el === document.activeElement
@@ -520,7 +548,7 @@ function AudioPlayerInner(props: AudioPlayerProps) {
                 (start + delta + items.length) % items.length
             items[next]?.focus()
         },
-        []
+        [getMenuItems]
     )
 
     const handleMenuKeyDown = useCallback(
@@ -536,16 +564,13 @@ function AudioPlayerInner(props: AudioPlayerProps) {
                     break
                 case "Home":
                     event.preventDefault()
-                    menuItemRefs.current[0]?.focus()
+                    getMenuItems()[0]?.focus()
                     break
                 case "End":
                     event.preventDefault()
                     {
-                        const last =
-                            menuItemRefs.current.filter(
-                                (el): el is HTMLButtonElement => el !== null
-                            )
-                        last[last.length - 1]?.focus()
+                        const items = getMenuItems()
+                        items[items.length - 1]?.focus()
                     }
                     break
                 case "Tab":
@@ -557,7 +582,7 @@ function AudioPlayerInner(props: AudioPlayerProps) {
                     break
             }
         },
-        [focusMenuItem]
+        [focusMenuItem, getMenuItems]
     )
 
     const handleAutoPlayToggle = useCallback(
@@ -784,7 +809,7 @@ function AudioPlayerInner(props: AudioPlayerProps) {
     return (
         <div
             ref={rootRef}
-            className={`ap-root${className ? ` ${className}` : ""}${
+            className={`ap-root ap-root--${variant}${className ? ` ${className}` : ""}${
                 pageVisible ? "" : " ap-root--hidden"
             }`}
             style={{ ...themeVars, ...style }}
@@ -793,7 +818,7 @@ function AudioPlayerInner(props: AudioPlayerProps) {
             onKeyDown={handleRootKeyDown}
         >
             {/* Queue drawer (Up Next) */}
-            {isPlaylistMode && (
+            {isPlaylistMode && controls.queue && (
                 <QueueDrawer
                     queue={localQueue}
                     currentIndex={trackIndex}
@@ -871,7 +896,8 @@ function AudioPlayerInner(props: AudioPlayerProps) {
                     </div>
                 )}
 
-                <div className="ap-top-actions">
+                {controls.menu && (
+                    <div className="ap-top-actions">
                     <div className="ap-menu" ref={menuRef}>
                         <button
                             type="button"
@@ -890,6 +916,7 @@ function AudioPlayerInner(props: AudioPlayerProps) {
                                 role="menu"
                                 onKeyDown={handleMenuKeyDown}
                             >
+                                {!isCompact && (
                                 <button
                                     type="button"
                                     role="menuitemcheckbox"
@@ -911,6 +938,8 @@ function AudioPlayerInner(props: AudioPlayerProps) {
                                         <span className="ap-menu__knob" />
                                     </span>
                                 </button>
+                                )}
+                                {controls.playlist && (
                                 <button
                                     type="button"
                                     role="menuitemcheckbox"
@@ -932,6 +961,8 @@ function AudioPlayerInner(props: AudioPlayerProps) {
                                         <span className="ap-menu__knob" />
                                     </span>
                                 </button>
+                                )}
+                                {controls.playlist && (
                                 <button
                                     type="button"
                                     role="menuitem"
@@ -947,7 +978,8 @@ function AudioPlayerInner(props: AudioPlayerProps) {
                                     </span>
                                     <span className="ap-menu__value">{localRepeatMode}</span>
                                 </button>
-                                {isPlaylistMode && (
+                                )}
+                                {controls.playlist && isPlaylistMode && (
                                     <button
                                         type="button"
                                         role="menuitemcheckbox"
@@ -976,7 +1008,7 @@ function AudioPlayerInner(props: AudioPlayerProps) {
                                     className="ap-menu__item ap-tap"
                                     onClick={handleShareClick}
                                     ref={(el) => {
-                                        menuItemRefs.current[4] = el
+                                        menuItemRefs.current[isCompact ? 0 : 4] = el
                                     }}
                                 >
                                     <span className="ap-menu__label">
@@ -990,9 +1022,10 @@ function AudioPlayerInner(props: AudioPlayerProps) {
                             </div>
                         )}
                     </div>
-                </div>
+                    </div>
+                )}
 
-                {isPlaylistMode && (
+                {isPlaylistMode && controls.playlist && (
                     <div className="ap-track-counter">
                         Track {trackIndex + 1} of {localQueue.length}
                         {localShuffle ? " · Shuffle" : ""}
@@ -1064,7 +1097,7 @@ function AudioPlayerInner(props: AudioPlayerProps) {
                 </div>
 
                 <div className="ap-transport" role="group" aria-label="Playback controls">
-                    {isPlaylistMode && (
+                    {isPlaylistMode && controls.playlist && (
                         <button
                             type="button"
                             className={`ap-icon-btn ap-tap${localShuffle ? " ap-mode-btn--on" : ""}`}
@@ -1075,7 +1108,7 @@ function AudioPlayerInner(props: AudioPlayerProps) {
                             <ShuffleIcon />
                         </button>
                     )}
-                    {isPlaylistMode && (
+                    {isPlaylistMode && controls.playlist && (
                         <button
                             type="button"
                             className="ap-btn ap-btn--ghost ap-btn--sm ap-tap"
@@ -1087,6 +1120,7 @@ function AudioPlayerInner(props: AudioPlayerProps) {
                         </button>
                     )}
 
+                    {controls.skip && (
                     <button
                         type="button"
                         className="ap-btn ap-btn--ghost ap-tap"
@@ -1096,6 +1130,7 @@ function AudioPlayerInner(props: AudioPlayerProps) {
                     >
                         <Back10Icon />
                     </button>
+                    )}
 
                     <button
                         type="button"
@@ -1121,6 +1156,7 @@ function AudioPlayerInner(props: AudioPlayerProps) {
                         )}
                     </button>
 
+                    {controls.skip && (
                     <button
                         type="button"
                         className="ap-btn ap-btn--ghost ap-tap"
@@ -1130,8 +1166,9 @@ function AudioPlayerInner(props: AudioPlayerProps) {
                     >
                         <Fwd10Icon />
                     </button>
+                    )}
 
-                    {isPlaylistMode && (
+                    {isPlaylistMode && controls.playlist && (
                         <button
                             type="button"
                             className="ap-btn ap-btn--ghost ap-btn--sm ap-tap"
@@ -1142,7 +1179,7 @@ function AudioPlayerInner(props: AudioPlayerProps) {
                             <NextIcon />
                         </button>
                     )}
-                    {isPlaylistMode && (
+                    {isPlaylistMode && controls.playlist && (
                         <button
                             type="button"
                             className={`ap-icon-btn ap-tap${localRepeatMode !== "off" ? " ap-mode-btn--on" : ""}`}
@@ -1154,7 +1191,7 @@ function AudioPlayerInner(props: AudioPlayerProps) {
                     )}
                 </div>
 
-                {showVolume && (
+                {controls.volume && (
                     <VolumeControl
                         volume={volume}
                         isMuted={isMuted}
@@ -1165,7 +1202,7 @@ function AudioPlayerInner(props: AudioPlayerProps) {
                     />
                 )}
 
-                {isPlaylistMode && (
+                {isPlaylistMode && controls.queue && (
                     <button
                         type="button"
                         className="ap-wide-btn ap-wide-btn--ghost ap-tap"
@@ -1177,7 +1214,7 @@ function AudioPlayerInner(props: AudioPlayerProps) {
                     </button>
                 )}
 
-                {currentTrack.lyrics && (
+                {controls.lyrics && currentTrack.lyrics && (
                     <button
                         type="button"
                         className="ap-wide-btn ap-wide-btn--ghost ap-tap"
@@ -1189,7 +1226,7 @@ function AudioPlayerInner(props: AudioPlayerProps) {
                     </button>
                 )}
 
-                {currentTrack.purchaseUrl && (
+                {controls.support && currentTrack.purchaseUrl && (
                     <a
                         className="ap-wide-btn ap-wide-btn--solid ap-tap"
                         href={currentTrack.purchaseUrl}
@@ -1201,7 +1238,7 @@ function AudioPlayerInner(props: AudioPlayerProps) {
                     </a>
                 )}
 
-                {showLyrics && currentTrack.lyrics && (
+                {controls.lyrics && showLyrics && currentTrack.lyrics && (
                     <div className="ap-lyrics ap-anim-in">{currentTrack.lyrics}</div>
                 )}
 

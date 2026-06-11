@@ -1159,3 +1159,60 @@
         border-left: none;
     }
 }
+/* ----------------------------- Compact variant ----------------------------- */
+
+.ap-root--compact {
+    padding: 14px;
+    border-radius: 14px;
+}
+.ap-root--compact .ap-content {
+    gap: 10px;
+}
+.ap-root--compact .ap-top-actions {
+    top: -4px;
+    right: -4px;
+}
+.ap-root--compact .ap-menu__btn {
+    width: 30px;
+    height: 30px;
+}
+.ap-root--compact .ap-track-info {
+    padding-right: 34px;
+    gap: 2px;
+}
+.ap-root--compact .ap-track-info__title {
+    font-size: 15px;
+    line-height: 1.25;
+}
+.ap-root--compact .ap-track-info__artist {
+    font-size: 12px;
+}
+.ap-root--compact .ap-progress-group {
+    gap: 4px;
+}
+.ap-root--compact .ap-progress {
+    height: 18px;
+}
+.ap-root--compact .ap-progress__track,
+.ap-root--compact .ap-progress__buffered,
+.ap-root--compact .ap-progress__fill {
+    height: 6px;
+}
+.ap-root--compact .ap-progress__thumb {
+    width: 12px;
+    height: 12px;
+}
+.ap-root--compact .ap-times {
+    font-size: 10px;
+}
+.ap-root--compact .ap-transport {
+    justify-content: flex-start;
+}
+.ap-root--compact .ap-btn--play {
+    width: 42px;
+    height: 42px;
+}
+.ap-root--compact .ap-btn--play svg {
+    width: 20px;
+    height: 20px;
+}

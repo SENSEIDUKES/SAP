@@ -1310,7 +1310,7 @@ function Lab() {
                                         <span className="lab-card__price">{c.price}</span>
                                     </div>
                                     <div className="lab-card__player">
-                                        <AudioPlayer title={c.t} artist={c.a} audioFile={SAMPLE} showVolume={false}
+                                        <AudioPlayer variant="compact" title={c.t} artist={c.a} audioFile={SAMPLE}
                                             accentColor="#ffffff" progressColor="#ffffff" backgroundColor="rgba(20,20,28,0.6)" />
                                     </div>
                                 </div>

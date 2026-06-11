@@ -19,6 +19,9 @@ import {
     useAudioPlayer,
     useAudioSession,
     useSAPPropGetters,
+    PluginRegistryProvider,
+    useActivePluginInstances,
+    PluginManagerPanel,
 } from "../audio-player"
 import type { AudioBackendKind, AudioPlayerProps, Track } from "../audio-player"
 import "./audio-player-lab.css"
@@ -1109,6 +1112,67 @@ function AudioBackendSection() {
     )
 }
 
+/* ----------------------------- Plugin registry section ----------------------------- */
+function PluginRegistrySection() {
+    const plugins = useActivePluginInstances()
+    const [lyricLine, setLyricLine] = useState("")
+
+    useEffect(() => {
+        const el = document.getElementById("registry-lyrics-line")
+        if (el) {
+            const observer = new MutationObserver(() => setLyricLine(el.textContent ?? ""))
+            observer.observe(el, { characterData: true, childList: true, subtree: true })
+            setLyricLine(el.textContent ?? "")
+            return () => observer.disconnect()
+        }
+    }, [])
+
+    return (
+        <section className="lab-section">
+            <h2 className="lab-section__title">
+                12. Plugin registry
+                <small>browse · install · toggle</small>
+            </h2>
+            <p className="lab-section__desc">
+                The <code>PluginRegistryProvider</code> wraps a registry of
+                built-in SEIHouse plugins. Browse available plugins, install
+                them, and toggle them active/inactive. Active plugins are
+                passed into the <code>AudioPlayer</code> below — install the
+                keyboard plugin to control playback with Space/J/K/L, or add
+                analytics to see console.table output.
+            </p>
+            <div className="lab-section__grid">
+                <div className="lab-plugin-registry-section">
+                    <PluginManagerPanel />
+                    <div className="lab-plugin-registry-player">
+                        <h3 className="lab-plugin-registry-player__title">
+                            AudioPlayer with active registry plugins
+                            <span className="lab-plugin-manager__badge">
+                                {plugins.length} active
+                            </span>
+                        </h3>
+                        <AudioPlayer
+                            tracks={playlist}
+                            showTracklist
+                            repeatMode="all"
+                            plugins={plugins}
+                            accentColor="#7C5CFF"
+                            progressColor="#7C5CFF"
+                            backgroundColor="rgba(20,20,28,0.6)"
+                        />
+                        <div
+                            id="registry-lyrics-line"
+                            className="lab-plugin-registry-player__lyric-line"
+                        >
+                            {lyricLine || "Install Lyrics Sync to see synced text here"}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    )
+}
+
 /* ----------------------------- Lab page ----------------------------- */
 function Lab() {
     return (
@@ -1371,6 +1435,11 @@ function Lab() {
             <AudioBackendSection />
 
             <AutomixProSection />
+
+            {/* ============== 12. Plugin registry ============== */}
+            <PluginRegistryProvider>
+                <PluginRegistrySection />
+            </PluginRegistryProvider>
         </div>
     )
 }

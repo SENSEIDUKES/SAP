@@ -118,6 +118,17 @@ export type {
     SleepTimerPreset,
     SleepTimerState,
 } from "./plugins/SleepTimerPlugin"
+export {
+    PluginRegistryProvider,
+    usePluginRegistry,
+    useActivePluginInstances,
+} from "./plugins/registry/usePluginRegistry"
+export { PluginManagerPanel } from "./plugins/registry/PluginManagerPanel"
+export type {
+    PluginRegistryEntry,
+    InstalledPluginRecord,
+    PluginRegistrySnapshot,
+} from "./plugins/registry/usePluginRegistry"
 export type { TransitionPlan } from "./automix/transitionPlanner"
 export type {
     Track,

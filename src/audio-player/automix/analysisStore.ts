@@ -31,7 +31,11 @@ function openDb(): Promise<IDBDatabase | null> {
                 }
             }
             request.onsuccess = () => resolve(request.result)
-            request.onerror = () => resolve(null)
+            request.onerror = (event) => {
+                // Unhandled IDB request errors bubble to window; swallow them.
+                event.preventDefault()
+                resolve(null)
+            }
             request.onblocked = () => resolve(null)
         } catch {
             resolve(null)
@@ -49,15 +53,17 @@ export async function readStoredAnalysis(trackKey: string): Promise<TrackAnalysi
     if (!db) return null
     return new Promise((resolve) => {
         try {
-            const request = db
-                .transaction(STORE_NAME, "readonly")
-                .objectStore(STORE_NAME)
-                .get(storageKey(trackKey))
+            const transaction = db.transaction(STORE_NAME, "readonly")
+            transaction.onerror = (event) => event.preventDefault()
+            const request = transaction.objectStore(STORE_NAME).get(storageKey(trackKey))
             request.onsuccess = () => {
                 const value = request.result as TrackAnalysis | undefined
                 resolve(value && typeof value === "object" ? value : null)
             }
-            request.onerror = () => resolve(null)
+            request.onerror = (event) => {
+                event.preventDefault()
+                resolve(null)
+            }
         } catch {
             resolve(null)
         }
@@ -71,9 +77,9 @@ export async function writeStoredAnalysis(
     const db = await openDb()
     if (!db) return
     try {
-        db.transaction(STORE_NAME, "readwrite")
-            .objectStore(STORE_NAME)
-            .put(analysis, storageKey(trackKey))
+        const transaction = db.transaction(STORE_NAME, "readwrite")
+        transaction.onerror = (event) => event.preventDefault()
+        transaction.objectStore(STORE_NAME).put(analysis, storageKey(trackKey))
     } catch {
         // Persistence is opportunistic; the in-memory cache still has it.
     }

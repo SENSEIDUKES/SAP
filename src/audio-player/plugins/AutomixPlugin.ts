@@ -547,6 +547,10 @@ export class AutomixPlugin implements AudioPlayerPlugin {
         // confident rhythm data; the fade length is locked at fade start.
         let plan: TransitionPlan | null = null
         if (this.usePro()) {
+            // Dedup'd to a map lookup once analysis is underway. Kept here
+            // (not just onTrackLoad) because this is the only path that sees
+            // a next track changed mid-playback — shuffle toggles or queue
+            // edits — early enough for the multi-second Pro analysis.
             void this.ensureAnalysis(nextTrack)
             const outgoing = getTrackAnalysis(currentTrack)
             const incoming = getTrackAnalysis(nextTrack)

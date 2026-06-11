@@ -179,7 +179,14 @@ export function planTransition(
         // Tempo clash: keep it short, shorter the worse the mismatch.
         fadeMs = Math.round(FADE_MIN_MS + 1000 * (compatibility / COMPAT_BLEND_MIN))
     }
-    fadeMs = Math.min(FADE_MAX_MS, Math.max(FADE_MIN_MS, fadeMs))
+    // Never plan a blend longer than the outgoing track can actually carry,
+    // or short tracks would end mid-fade with an abrupt cutoff.
+    const availableMs = trimmedEndAMs - trimsA.trimStartMs
+    const maxFadeMs = Math.max(
+        FADE_MIN_MS,
+        Math.min(FADE_MAX_MS, availableMs - FADE_END_SAFETY_MS)
+    )
+    fadeMs = Math.min(maxFadeMs, Math.max(FADE_MIN_MS, fadeMs))
 
     const pointsA = computeTransitionPoints(outgoing, trimsA, durationAMs, fadeMs)
     const deckStartMsInB = incoming.transitionInMs ?? trimsB.trimStartMs

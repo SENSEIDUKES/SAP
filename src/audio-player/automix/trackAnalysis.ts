@@ -92,7 +92,7 @@ function extractMonoSegment(
     const out = new Float32Array(outLength)
     for (let i = 0; i < outLength; i++) {
         const sourcePos = start + i * ratio
-        const i0 = Math.floor(sourcePos)
+        const i0 = Math.min(end - 1, Math.floor(sourcePos))
         const i1 = Math.min(end - 1, i0 + 1)
         const frac = sourcePos - i0
         let sum = 0
@@ -212,10 +212,12 @@ async function analyze(key: string, url: string): Promise<TrackAnalysis | null> 
         const tailStartMs = trimmedEndMs - TAIL_SEGMENT_MS
         const headSamples = extractMonoSegment(buffer, trims.trimStartMs, headEndMs)
         const tailSamples = extractMonoSegment(buffer, tailStartMs, trimmedEndMs)
-        const head = headSamples
-            ? await rhythmFn(headSamples, RHYTHM_SAMPLE_RATE, trims.trimStartMs)
-            : null
-        const tail = tailSamples ? await rhythmFn(tailSamples, RHYTHM_SAMPLE_RATE, tailStartMs) : null
+        // Post both jobs at once: the worker processes them back to back
+        // without waiting for a main-thread roundtrip in between.
+        const [head, tail] = await Promise.all([
+            headSamples ? rhythmFn(headSamples, RHYTHM_SAMPLE_RATE, trims.trimStartMs) : null,
+            tailSamples ? rhythmFn(tailSamples, RHYTHM_SAMPLE_RATE, tailStartMs) : null,
+        ])
         rhythm = mergeSegments(head, tail)
     }
 

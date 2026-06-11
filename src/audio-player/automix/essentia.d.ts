@@ -14,13 +14,13 @@ declare module "essentia.js/dist/essentia-wasm.es.js" {
 }
 
 declare module "essentia.js/dist/essentia.js-core.es.js" {
-    interface VectorFloat {
+    export interface VectorFloat {
         size(): number
         get(index: number): number
         delete(): void
     }
 
-    interface RhythmExtractor2013Result {
+    export interface RhythmExtractor2013Result {
         bpm: number
         ticks: VectorFloat
         confidence: number

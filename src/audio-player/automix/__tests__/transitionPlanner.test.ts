@@ -189,6 +189,20 @@ describe("planTransition", () => {
         expect(plan.fadeMs).toBeLessThanOrEqual(3500)
     })
 
+    it("caps the blend to what a short outgoing track can carry", () => {
+        // 30s track, high energy: an uncapped plan would ask for 9-12s.
+        const shortDurationMs = 30_000
+        const beats = Array.from({ length: 60 }, (_, i) => i * 500)
+        const plan = planTransition(
+            confidentAnalysis({ energy: 0.9, beats }),
+            confidentAnalysis({ energy: 0.9 }),
+            shortDurationMs,
+            baseFadeMs
+        )
+        expect(plan.usedPro).toBe(true)
+        expect(plan.fadeMs).toBeLessThanOrEqual(shortDurationMs - 2000)
+    })
+
     it("starts the fade on a beat of the outgoing track", () => {
         const plan = planTransition(
             confidentAnalysis(),

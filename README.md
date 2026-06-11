@@ -178,6 +178,8 @@ This project is currently in active internal development.
 
 The repository should be treated as an evolving SEIHouse infrastructure component, not a finished public package. APIs, file structure, player surfaces, and internal playback behavior may change as the player is refined for SEA Portal, Vault, Arc Notes, Vault Radio, and other SEIHouse use cases.
 
+Live demo: https://sap.seaportal.world/
+
 ---
 
 ## License / usage restrictions

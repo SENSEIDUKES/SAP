@@ -1,7 +1,7 @@
 {
   "name": "seihouse-audio-player",
   "version": "1.0.0",
-  "description": "Portable custom audio player (React + TypeScript) with optional lazy-loaded wavesurfer.js waveforms",
+  "description": "Portable custom audio player (React + TypeScript) — zero-dependency core with optional lazy-loaded Automix Pro analysis and wavesurfer.js waveforms",
   "type": "module",
   "main": "src/audio-player/index.ts",
   "scripts": {
@@ -10,7 +10,8 @@
     "preview": "vite preview --host 0.0.0.0",
     "preview:smoke": "node scripts/preview-smoke-test.mjs",
     "typecheck": "tsc --noEmit",
-    "test": "npm run typecheck && npm run build && npm run preview:smoke"
+    "test:unit": "vitest run",
+    "test": "npm run typecheck && npm run test:unit && npm run build && npm run preview:smoke"
   },
   "peerDependencies": {
     "react": ">=18",
@@ -23,10 +24,12 @@
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "typescript": "^5.5.3",
-    "vite": "^8.0.16"
+    "vite": "^8.0.16",
+    "vitest": "^4.1.8"
   },
   "license": "UNLICENSED",
   "dependencies": {
+    "essentia.js": "0.1.3",
     "wavesurfer.js": "^7.12.7"
   }
 }

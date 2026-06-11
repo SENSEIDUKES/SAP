@@ -15,10 +15,12 @@ import type { AudioPlayerProps, RepeatMode, Track } from "./types"
 import type { AudioPlayerPlugin, PluginPlayerContext } from "./core/plugins/PluginInterface"
 import { useAudioPlayer } from "./useAudioPlayer"
 import { useAutomix } from "./automix/useAutomix"
+import { useMediaSessionObserver } from "./headless/useMediaSessionObserver"
 import { usePluginManager } from "./core/plugins/usePluginManager"
 import { ProgressBar } from "./components/ProgressBar"
 import { WaveformProgress } from "./components/WaveformProgress"
 import { VolumeControl } from "./components/VolumeControl"
+import { QueueDrawer } from "./components/QueueDrawer"
 import { formatTime } from "./utils/formatTime"
 import { trackKey } from "./utils/trackKey"
 import "./audio-player.css"
@@ -142,11 +144,19 @@ function AudioPlayerInner(props: AudioPlayerProps) {
         repeatModeProp ?? (loop ? "one" : "off")
     )
     const [localAutomix, setLocalAutomix] = useState(automix)
+    // Editable local queue (copy of tracks prop, updated by reorder/remove).
+    const [localQueue, setLocalQueue] = useState<Track[]>(tracks)
+    const [queueOpen, setQueueOpen] = useState(false)
     const rootRef = useRef<HTMLDivElement>(null)
     const menuRef = useRef<HTMLDivElement>(null)
     const menuButtonRef = useRef<HTMLButtonElement>(null)
     const menuItemRefs = useRef<Array<HTMLButtonElement | null>>([])
     const shareTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+    // Sync localQueue when tracks prop changes.
+    useEffect(() => {
+        setLocalQueue(tracks)
+    }, [tracks])
 
     useEffect(() => {
         return () => {
@@ -198,24 +208,19 @@ function AudioPlayerInner(props: AudioPlayerProps) {
         }
     }, [menuOpen])
 
-    // Keep the index valid if the track list shrinks / mode changes.
+    // Keep the index valid if the queue shrinks / mode changes.
     useEffect(() => {
-        if (isPlaylistMode && trackIndex >= tracks.length) setTrackIndex(0)
+        if (isPlaylistMode && trackIndex >= localQueue.length) setTrackIndex(0)
         if (!isPlaylistMode && trackIndex !== 0) setTrackIndex(0)
-    }, [isPlaylistMode, trackIndex, tracks.length])
+    }, [isPlaylistMode, trackIndex, localQueue.length])
 
     const currentTrack: Track = useMemo(() => {
-        if (isPlaylistMode && tracks[trackIndex]) return tracks[trackIndex]
+        if (isPlaylistMode && localQueue[trackIndex]) return localQueue[trackIndex]
         return { title, artist, audioFile, purchaseUrl, lyrics }
-        // Derive from the *identity* of the active track. Recreating the object
-        // on every render (because of prop reference changes) used to thrash
-        // `currentTime` in the engine. The listed deps are the ones that
-        // actually change the active track in playlist mode, plus the single-
-        // track props.
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [
         isPlaylistMode,
-        tracks,
+        localQueue,
         trackIndex,
         title,
         artist,
@@ -226,24 +231,14 @@ function AudioPlayerInner(props: AudioPlayerProps) {
 
     const src = currentTrack.audioFile?.trim() ?? ""
 
-    // Build a sourceKey that encodes the playlist position AND track identity,
-    // so the engine resets when switching between playlist tracks that share the
-    // same audio URL (e.g. a demo playlist with a single sample).
-    //
-    // In single-track mode the key is tied to `src` only. Folding title/artist
-    // into it there would make display metadata part of the playback identity:
-    // a consumer replacing placeholder metadata (CMS/localization fetch) while
-    // the audio URL is unchanged would otherwise restart playback from 0.
     const sourceKey = isPlaylistMode
         ? `${trackIndex}:${trackKey(currentTrack)}`
         : src
 
     const playbackOrder = useMemo(
-        () => buildPlaybackOrder(tracks.length, trackIndex, localShuffle),
-        // Deliberately do not key on trackIndex: changing tracks should walk the
-        // current shuffled order instead of reshuffling on every navigation.
+        () => buildPlaybackOrder(localQueue.length, trackIndex, localShuffle),
         // eslint-disable-next-line react-hooks/exhaustive-deps
-        [tracks, localShuffle]
+        [localQueue, localShuffle]
     )
 
     const stepTrackIndex = useCallback(
@@ -303,10 +298,10 @@ function AudioPlayerInner(props: AudioPlayerProps) {
     const goToTrack = useCallback(
         (next: number | null) => {
             if (!isPlaylistMode || next === null) return
-            const clamped = ((next % tracks.length) + tracks.length) % tracks.length
+            const clamped = ((next % localQueue.length) + localQueue.length) % localQueue.length
             if (clamped !== trackIndex) setTrackIndex(clamped)
         },
-        [isPlaylistMode, trackIndex, tracks.length]
+        [isPlaylistMode, trackIndex, localQueue.length]
     )
 
     const previousTrack = useCallback(
@@ -355,7 +350,7 @@ function AudioPlayerInner(props: AudioPlayerProps) {
             : null
     const automixNextTrack =
         automixNextIndex !== null && automixNextIndex !== trackIndex
-            ? tracks[automixNextIndex] ?? null
+            ? localQueue[automixNextIndex] ?? null
             : null
     const pluginNextIndex =
         isPlaylistMode && localRepeatMode !== "one"
@@ -363,7 +358,7 @@ function AudioPlayerInner(props: AudioPlayerProps) {
             : null
     const pluginNextTrack =
         pluginNextIndex !== null && pluginNextIndex !== trackIndex
-            ? tracks[pluginNextIndex] ?? null
+            ? localQueue[pluginNextIndex] ?? null
             : null
 
     const automixCtl = useAutomix({
@@ -381,7 +376,7 @@ function AudioPlayerInner(props: AudioPlayerProps) {
         currentTrack: currentTrack as Track | null,
         nextTrack: pluginNextTrack as Track | null,
         sourceKey,
-        tracks,
+        tracks: localQueue,
         trackIndex,
         repeatMode: localRepeatMode,
         shuffle: localShuffle,
@@ -394,7 +389,7 @@ function AudioPlayerInner(props: AudioPlayerProps) {
         currentTrack,
         nextTrack: pluginNextTrack,
         sourceKey,
-        tracks,
+        tracks: localQueue,
         trackIndex,
         repeatMode: localRepeatMode,
         shuffle: localShuffle,
@@ -486,7 +481,7 @@ function AudioPlayerInner(props: AudioPlayerProps) {
         currentTrack,
         nextTrack: pluginNextTrack,
         sourceKey,
-        tracks,
+        tracks: localQueue,
         trackIndex,
         repeatMode: localRepeatMode,
         shuffle: localShuffle,
@@ -580,6 +575,56 @@ function AudioPlayerInner(props: AudioPlayerProps) {
     const handleAutomixToggle = useCallback(
         () => setLocalAutomix((v) => !v),
         []
+    )
+
+    // Queue drawer callbacks (local queue management for standalone player).
+    const handleQueuePlayTrack = useCallback(
+        (index: number) => {
+            if (index !== trackIndex) {
+                setTrackIndex(index)
+            }
+            setQueueOpen(false)
+        },
+        [trackIndex]
+    )
+
+    const handleQueueReorder = useCallback(
+        (fromIndex: number, toIndex: number) => {
+            if (fromIndex === toIndex) return
+            setLocalQueue((q) => {
+                const next = [...q]
+                const [moved] = next.splice(fromIndex, 1)
+                next.splice(toIndex, 0, moved)
+                return next
+            })
+            // Adjust trackIndex if the active track was moved.
+            if (fromIndex === trackIndex) {
+                setTrackIndex(toIndex)
+            } else {
+                // Shift trackIndex if removal was before it and insertion after (or vice versa).
+                let adjusted = trackIndex
+                if (fromIndex < trackIndex && toIndex >= trackIndex) {
+                    adjusted = trackIndex - 1
+                } else if (fromIndex > trackIndex && toIndex <= trackIndex) {
+                    adjusted = trackIndex + 1
+                }
+                if (adjusted !== trackIndex) {
+                    setTrackIndex(adjusted)
+                }
+            }
+        },
+        [trackIndex]
+    )
+
+    const handleQueueRemove = useCallback(
+        (index: number) => {
+            if (index === trackIndex) return // Never remove the active track.
+            setLocalQueue((q) => q.filter((_, i) => i !== index))
+            if (index < trackIndex) {
+                setTrackIndex((ti) => ti - 1)
+            }
+        },
+        [trackIndex]
     )
 
     const handleShare = useCallback(() => {
@@ -698,89 +743,17 @@ function AudioPlayerInner(props: AudioPlayerProps) {
     }, [hasAudio])
 
     // ── Media Session API (progressive enhancement) ──
-    const mediaSessionRef = useRef<{
-        sourceKey: string
-        cleanup: () => void
-    } | null>(null)
-    useEffect(() => {
-        if (typeof navigator === "undefined" || !("mediaSession" in navigator))
-            return
-
-        const ms = navigator.mediaSession
-
-        // Clean up previous registration when the track changes.
-        if (mediaSessionRef.current) {
-            mediaSessionRef.current.cleanup()
-        }
-
-        // Set metadata.
-        const artwork = backgroundImage?.src
+    useMediaSessionObserver(pluginAwareEngine, {
+        title: currentTrack.title,
+        artist: currentTrack.artist,
+        album: "",
+        artwork: backgroundImage?.src
             ? [{ src: backgroundImage.src, sizes: "512x512", type: "image/jpeg" }]
-            : []
-        ms.metadata = new MediaMetadata({
-            title: currentTrack.title,
-            artist: currentTrack.artist,
-            album: "",
-            artwork,
-        })
-
-        // Register action handlers. Older browsers throw when an unknown action
-        // type is passed, so each registration is wrapped.
-        const actions: MediaSessionAction[] = [
-            "play",
-            "pause",
-            "previoustrack",
-            "nexttrack",
-            "seekbackward",
-            "seekforward",
-            "stop",
-        ]
-        const handlers: Record<string, MediaSessionActionHandler> = {
-            play: () => engine.play(true),
-            pause: () => engine.pause(),
-            previoustrack: () => previousTrack(),
-            nexttrack: () => nextTrack(),
-            seekbackward: () => seekByWithPlugins(-10),
-            seekforward: () => seekByWithPlugins(10),
-            stop: () => engine.pause(),
-        }
-        for (const action of actions) {
-            try {
-                ms.setActionHandler(action, handlers[action])
-            } catch {
-                /* unsupported action type */
-            }
-        }
-
-        mediaSessionRef.current = {
-            sourceKey,
-            cleanup: () => {
-                ms.metadata = null
-                for (const action of actions) {
-                    try {
-                        ms.setActionHandler(action, null)
-                    } catch {
-                        /* unsupported action type */
-                    }
-                }
-            },
-        }
-
-        return () => {
-            if (mediaSessionRef.current) {
-                mediaSessionRef.current.cleanup()
-                mediaSessionRef.current = null
-            }
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [sourceKey])
-
-    // Keep playback state in sync with the OS.
-    useEffect(() => {
-        if (typeof navigator === "undefined" || !("mediaSession" in navigator))
-            return
-        navigator.mediaSession.playbackState = isPlaying ? "playing" : "paused"
-    }, [isPlaying])
+            : [],
+        onNext: nextTrack,
+        onPrevious: previousTrack,
+        sourceKey,
+    })
 
     // Pause the equalizer CSS animation when the tab is hidden so we don't
     // keep the GPU and rAF clock busy in the background.
@@ -817,6 +790,19 @@ function AudioPlayerInner(props: AudioPlayerProps) {
             aria-label="Audio player"
             onKeyDown={handleRootKeyDown}
         >
+            {/* Queue drawer (Up Next) */}
+            {isPlaylistMode && (
+                <QueueDrawer
+                    queue={localQueue}
+                    currentIndex={trackIndex}
+                    open={queueOpen}
+                    onClose={() => setQueueOpen(false)}
+                    onPlayTrack={handleQueuePlayTrack}
+                    onReorder={handleQueueReorder}
+                    onRemove={handleQueueRemove}
+                />
+            )}
+
             {/* SR live region */}
             <div className="ap-sr-only" role="status" aria-live="polite" aria-atomic="true">
                 {announcement}
@@ -1006,7 +992,7 @@ function AudioPlayerInner(props: AudioPlayerProps) {
 
                 {isPlaylistMode && (
                     <div className="ap-track-counter">
-                        Track {trackIndex + 1} of {tracks.length}
+                        Track {trackIndex + 1} of {localQueue.length}
                         {localShuffle ? " · Shuffle" : ""}
                         {localRepeatMode !== "off" ? ` · Repeat ${localRepeatMode}` : ""}
                         {localAutomix ? " · Automix" : ""}
@@ -1177,6 +1163,18 @@ function AudioPlayerInner(props: AudioPlayerProps) {
                     />
                 )}
 
+                {isPlaylistMode && (
+                    <button
+                        type="button"
+                        className="ap-wide-btn ap-wide-btn--ghost ap-tap"
+                        onClick={() => setQueueOpen(true)}
+                        aria-label="Up next queue"
+                    >
+                        <QueueIcon />
+                        Up Next
+                    </button>
+                )}
+
                 {currentTrack.lyrics && (
                     <button
                         type="button"
@@ -1211,7 +1209,7 @@ function AudioPlayerInner(props: AudioPlayerProps) {
                         role="list"
                         aria-label="Playlist tracks"
                     >
-                        {tracks.map((track, index) => {
+                        {localQueue.map((track, index) => {
                             const active = index === trackIndex
                             return (
                                 <button
@@ -1371,5 +1369,15 @@ const RepeatOneIcon = () => (
         <polyline points="7 23 3 19 7 15" />
         <path d="M21 13v2a4 4 0 0 1-4 4H3" />
         <text x="12" y="15" textAnchor="middle" fontSize="8" fontWeight="700" fill="currentColor" stroke="none" fontFamily="system-ui, sans-serif">1</text>
+    </svg>
+)
+const QueueIcon = () => (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <line x1="8" y1="6" x2="21" y2="6" />
+        <line x1="8" y1="12" x2="21" y2="12" />
+        <line x1="8" y1="18" x2="21" y2="18" />
+        <line x1="3" y1="6" x2="3.01" y2="6" />
+        <line x1="3" y1="12" x2="3.01" y2="12" />
+        <line x1="3" y1="18" x2="3.01" y2="18" />
     </svg>
 )

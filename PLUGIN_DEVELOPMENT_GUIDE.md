@@ -25,6 +25,7 @@ import {
   createKeyboardShortcutPlugin,
   createAnalyticsPlugin,
   createLyricsPlugin,
+  createSleepTimerPlugin,
   createAutomixPlugin,
 } from "./src/audio-player"
 ```
@@ -39,6 +40,7 @@ Both standalone and shared-session entry points accept plugins:
   plugins={[
     createKeyboardShortcutPlugin(),
     createAnalyticsPlugin({ send: console.log }),
+    createSleepTimerPlugin(),
   ]}
 />
 ```
@@ -199,6 +201,21 @@ createLyricsPlugin({
 ```
 
 You can also provide `target` to write the active line into a DOM node.
+
+### `SleepTimerPlugin`
+
+Adds a compact dropdown with `15 min`, `30 min`, `45 min`, `1 hr`, and
+`Until end of track` options. Countdown presets use wall-clock time and pause
+the engine when they expire. `Until end of track` pauses when the active track
+ends and claims the hook so the host does not auto-advance.
+
+```ts
+createSleepTimerPlugin()
+```
+
+Standalone players mount the dropdown into the player root. Shared sessions can
+pass `target` to render the dropdown somewhere else, or call `setTimer` on a
+plugin instance from custom UI.
 
 ### `AutomixPlugin`
 

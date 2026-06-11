@@ -405,6 +405,75 @@ export function AudioSessionProvider({
         if (target !== null) goTo(target, engine.isPlaying)
     }, [stepIndex, currentIndex, goTo, engine.currentTime, engine.isPlaying, seekWithPlugins])
 
+    // Move a queue item from one index to another (drag-and-drop reorder).
+    // Preserves the current index pointing to the active track.
+    const moveQueueItem = useCallback(
+        (fromIndex: number, toIndex: number) => {
+            if (fromIndex === toIndex) return
+            if (fromIndex < 0 || fromIndex >= queue.length) return
+            if (toIndex < 0 || toIndex >= queue.length) return
+
+            setQueueState((q) => {
+                const next = [...q]
+                const [moved] = next.splice(fromIndex, 1)
+                next.splice(toIndex, 0, moved)
+
+                // Adjust currentIndex to stay on the same track.
+                // If the moved track was after currentIndex and inserted before it,
+                // or before and inserted after, the currentIndex needs shifting.
+                if (fromIndex === currentIndex) {
+                    // The active track was moved — update currentIndex to its new position.
+                    // We'll update it in a separate setState.
+                } else {
+                    // A non-active track moved. Adjust currentIndex if needed.
+                    // The currentIndex shifts +1 if the removed gap was before it and the
+                    // insertion point is after it, or -1 if the gap was after it and the
+                    // insertion point is before it, etc.
+                    let adjusted = currentIndex
+                    if (fromIndex < currentIndex && toIndex >= currentIndex) {
+                        adjusted = currentIndex - 1
+                    } else if (fromIndex > currentIndex && toIndex <= currentIndex) {
+                        adjusted = currentIndex + 1
+                    }
+                    if (adjusted !== currentIndex) {
+                        // Use queueMicrotask to avoid setState-during-render.
+                        queueMicrotask(() => setCurrentIndex(adjusted))
+                    }
+                }
+                return next
+            })
+
+            // If the active track was moved, update currentIndex in the next microtask
+            // to avoid setting state during render.
+            if (fromIndex === currentIndex) {
+                queueMicrotask(() => setCurrentIndex(toIndex))
+            }
+        },
+        [queue.length, currentIndex]
+    )
+
+    // Remove a track from the queue by index. No-op if it's the active track
+    // (we don't want to stop playback by removing what's playing).
+    const removeFromQueue = useCallback(
+        (index: number) => {
+            if (index < 0 || index >= queue.length) return
+            // Prevent removing the currently playing track.
+            if (index === currentIndex) return
+
+            setQueueState((q) => {
+                const next = [...q]
+                next.splice(index, 1)
+                return next
+            })
+
+            // Adjust currentIndex if removal happened before the active track.
+            if (index < currentIndex) {
+                setCurrentIndex((ci) => ci - 1)
+            }
+        },
+        [queue.length, currentIndex]
+    )
+
     pluginContextStateRef.current = {
         engine: pluginAwareEngine,
         currentTrack,
@@ -454,6 +523,8 @@ export function AudioSessionProvider({
             next,
             previous,
             clearQueue,
+            moveQueueItem,
+            removeFromQueue,
             toggleShuffle,
             cycleRepeat,
             toggleAutomix,
@@ -475,6 +546,8 @@ export function AudioSessionProvider({
             next,
             previous,
             clearQueue,
+            moveQueueItem,
+            removeFromQueue,
             toggleShuffle,
             cycleRepeat,
             toggleAutomix,

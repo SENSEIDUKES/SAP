@@ -9,6 +9,7 @@ export { WebAudioBackend } from "./core/audio/WebAudioBackend"
 export {
     AutomixPlugin,
     createAutomixPlugin,
+    createAutomixProPlugin,
 } from "./plugins/AutomixPlugin"
 export {
     KeyboardShortcutPlugin,
@@ -23,9 +24,28 @@ export {
     createLyricsPlugin,
 } from "./plugins/LyricsPlugin"
 export {
+    SleepTimerPlugin,
+    createSleepTimerPlugin,
+} from "./plugins/SleepTimerPlugin"
+export {
     ensureTrackAnalysis,
     getTrackTrims,
 } from "./automix/silenceAnalysis"
+// Automix Pro metadata layer. Pure helpers are exported for host apps that
+// want to score queues or display analysis; none of them pull in the essentia
+// worker chunk — that loads only when a Pro analysis actually runs.
+export {
+    ensureProTrackAnalysis,
+    getTrackAnalysis,
+} from "./automix/trackAnalysis"
+export {
+    PRO_CONFIDENCE_MIN,
+    bpmCompatibility,
+    computeTransitionPoints,
+    normalizeRhythmConfidence,
+    planTransition,
+    snapToBeat,
+} from "./automix/transitionPlanner"
 export { formatTime } from "./utils/formatTime"
 export { trackKey } from "./utils/trackKey"
 export { checkCodecSupport } from "./utils/checkCodecSupport"
@@ -33,6 +53,27 @@ export { ProgressBar } from "./components/ProgressBar"
 export { VolumeControl } from "./components/VolumeControl"
 export { WaveformProgress } from "./components/WaveformProgress"
 export { extractPeaks, computePeaksFromUrl } from "./core/waveform/peaks"
+export { QueueDrawer } from "./components/QueueDrawer"
+export type { QueueDrawerProps } from "./components/QueueDrawer"
+
+// Headless adapter layer: Downshift-style prop getters and utilities over an
+// existing engine/session — no styling, no second engine.
+export {
+    composeEventHandlers,
+    isSAPDefaultPrevented,
+    mergeRefs,
+    useSAPPropGetters,
+    isSessionEngine,
+    useMediaSessionObserver,
+} from "./headless"
+export type {
+    SAPButtonProps,
+    SAPProgressBarProps,
+    SAPAudioElementProps,
+    SAPPropGetters,
+    UseSAPPropGettersOptions,
+    UseMediaSessionObserverOptions,
+} from "./headless"
 
 // Global session (one <audio> element + shared queue) and the UI skins that
 // read from it.
@@ -79,8 +120,26 @@ export type {
     TimedLyricLine,
 } from "./plugins/LyricsPlugin"
 export type {
+    SleepTimerPluginConfig,
+    SleepTimerPreset,
+    SleepTimerState,
+} from "./plugins/SleepTimerPlugin"
+export {
+    PluginRegistryProvider,
+    usePluginRegistry,
+    useActivePluginInstances,
+} from "./plugins/registry/usePluginRegistry"
+export { PluginManagerPanel } from "./plugins/registry/PluginManagerPanel"
+export type {
+    PluginRegistryEntry,
+    InstalledPluginRecord,
+    PluginRegistrySnapshot,
+} from "./plugins/registry/usePluginRegistry"
+export type { TransitionPlan } from "./automix/transitionPlanner"
+export type {
     Track,
     TrackTrims,
+    TrackAnalysis,
     AudioPlayerProps,
     AudioPlayerTheme,
     BackgroundImage,

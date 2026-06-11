@@ -1,4 +1,4 @@
-import { StrictMode, useMemo, useState } from "react"
+import { StrictMode, useEffect, useMemo, useState } from "react"
 import type { CSSProperties, ReactNode } from "react"
 import { createRoot } from "react-dom/client"
 import {
@@ -10,9 +10,18 @@ import {
     MiniSidebarPlayer,
     SeaCardPlayer,
     createAnalyticsPlugin,
+    createAutomixProPlugin,
     createKeyboardShortcutPlugin,
     createLyricsPlugin,
+    createSleepTimerPlugin,
+    formatTime,
+    getTrackAnalysis,
     useAudioPlayer,
+    useAudioSession,
+    useSAPPropGetters,
+    PluginRegistryProvider,
+    useActivePluginInstances,
+    PluginManagerPanel,
 } from "../audio-player"
 import type { AudioBackendKind, AudioPlayerProps, Track } from "../audio-player"
 import "./audio-player-lab.css"
@@ -711,6 +720,50 @@ const SEA_ARTS = [
     "linear-gradient(135deg,#A855F7,#EC4899)",
 ]
 
+/* Raw, intentionally unstyled controls built from the headless prop getters.
+   Reads the SAME session as every skin above it (useAudioSession), so it
+   proves the adapter drives the one shared <audio> element instead of
+   creating a second engine. */
+function HeadlessAdapterProbe() {
+    const session = useAudioSession()
+    const {
+        getPlayButtonProps,
+        getMuteButtonProps,
+        getPreviousButtonProps,
+        getNextButtonProps,
+        getSeekBackwardButtonProps,
+        getSeekForwardButtonProps,
+        getProgressBarProps,
+    } = useSAPPropGetters(session)
+
+    return (
+        <div>
+            <p>
+                Headless adapter probe — raw <code>useSAPPropGetters</code>{" "}
+                buttons over the same session (open the console to see the
+                custom <code>onClick</code> fire before SAP toggles):
+            </p>
+            <button
+                {...getPlayButtonProps({
+                    onClick: () => console.log("Custom trigger"),
+                })}
+            >
+                Toggle
+            </button>{" "}
+            <button {...getMuteButtonProps()}>Mute</button>{" "}
+            <button {...getPreviousButtonProps()}>Prev</button>{" "}
+            <button {...getNextButtonProps()}>Next</button>{" "}
+            <button {...getSeekBackwardButtonProps()}>-10s</button>{" "}
+            <button {...getSeekForwardButtonProps()}>+10s</button>
+            <div {...getProgressBarProps()}>
+                {formatTime(session.currentTime)} /{" "}
+                {formatTime(session.duration)} —{" "}
+                {session.currentTrack?.title ?? "(no track)"}
+            </div>
+        </div>
+    )
+}
+
 /* Every skin below shares ONE AudioSessionProvider — and therefore one <audio>
    element and one queue. Pressing play / seeking / switching tracks in any skin
    updates all the others live. */
@@ -767,6 +820,7 @@ function GlobalSessionSection() {
                     <div className="lab-session__sticky">
                         <StickyBottomPlayer fixed={false} {...SEA_THEME} />
                     </div>
+                    <HeadlessAdapterProbe />
                 </AudioSessionProvider>
             </div>
         </section>
@@ -813,6 +867,7 @@ function PluginArchitectureSection() {
                     setActiveLyric(line?.text ?? "Waiting for playback…")
                 },
             }),
+            createSleepTimerPlugin({ name: "demo-triple-sleep-timer" }),
         ],
         []
     )
@@ -821,12 +876,12 @@ function PluginArchitectureSection() {
         <section className="lab-section">
             <h2 className="lab-section__title">
                 9. Plugin architecture
-                <small>0 · 1 · 3 plugins</small>
+                <small>0 · 1 · 4 plugins</small>
             </h2>
             <p className="lab-section__desc">
                 These players exercise the new lifecycle plugin system. One runs
                 with no plugins, one registers keyboard shortcuts, and one stacks
-                keyboard, analytics, and lyric-sync plugins. Plugin failures are
+                keyboard, analytics, lyric-sync, and sleep-timer plugins. Plugin failures are
                 isolated by the manager so playback stays stable.
             </p>
             <div className="lab-section__grid">
@@ -866,10 +921,10 @@ function PluginArchitectureSection() {
                         </div>
                     </div>
                     <div className="lab-state">
-                        <h3 className="lab-state__title">3 plugins</h3>
+                        <h3 className="lab-state__title">4 plugins</h3>
                         <p className="lab-state__desc">
-                            Keyboard shortcuts, analytics callbacks, and lyric
-                            synchronization run together.
+                            Keyboard shortcuts, analytics callbacks, lyric
+                            synchronization, and sleep timer UI run together.
                         </p>
                         <div className="lab-state__player">
                             <AudioPlayer
@@ -888,6 +943,91 @@ function PluginArchitectureSection() {
                         <div className="lab-state__note">
                             events: {events.length > 0 ? events.join(" · ") : "none yet"}
                         </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    )
+}
+
+/* ----------------------------- Automix Pro demo ----------------------------- */
+// Clean playlist (no broken track) so transitions actually fire back to back.
+const proPlaylist: Track[] = playlist.filter((t) => t.audioFile !== BROKEN)
+
+function AutomixProSection() {
+    const [transitioning, setTransitioning] = useState(false)
+    const [readout, setReadout] = useState("analyzing…")
+
+    const proPlugins = useMemo(
+        () => [
+            createAutomixProPlugin({
+                name: "demo-automix-pro",
+                onTransitionChange: setTransitioning,
+            }),
+        ],
+        []
+    )
+
+    // Poll the synchronous analysis cache so the metadata becomes visible as
+    // soon as each track settles.
+    useEffect(() => {
+        const fmt = (n: number | undefined, digits = 2) =>
+            n === undefined ? "–" : n.toFixed(digits)
+        const tick = () => {
+            const lines = proPlaylist.map((t) => {
+                const a = getTrackAnalysis(t)
+                if (!a) return `${t.title}: pending`
+                return (
+                    `${t.title}: bpm ${fmt(a.bpm, 1)} · conf ${fmt(a.confidence)} · ` +
+                    `energy ${fmt(a.energy)} · beats ${a.beats?.length ?? 0} · ` +
+                    `in ${a.transitionInMs ?? "–"}ms · out ${a.transitionOutMs ?? "–"}ms`
+                )
+            })
+            setReadout(lines.join("\n"))
+        }
+        tick()
+        const interval = setInterval(tick, 1000)
+        return () => clearInterval(interval)
+    }, [])
+
+    return (
+        <section className="lab-section">
+            <h2 className="lab-section__title">
+                11. Automix Pro
+                <small>beat-near · energy-aware</small>
+            </h2>
+            <p className="lab-section__desc">
+                <code>createAutomixProPlugin()</code> analyzes each track in a
+                worker (essentia.js BPM/beat extraction, lazy-loaded WASM) and
+                drives crossfade timing from the metadata: fades start on a
+                beat, BPM-compatible high-energy pairs blend longer, tempo
+                clashes fade short, and low-confidence pairs fall back to
+                Automix Lite. Note the player&apos;s own Automix Lite switch
+                stays off — the plugin owns the transitions here.
+            </p>
+            <div className="lab-section__grid">
+                <div className="lab-states">
+                    <div className="lab-state">
+                        <h3 className="lab-state__title">
+                            Pro transitions {transitioning ? "· crossfading…" : ""}
+                        </h3>
+                        <div className="lab-state__player">
+                            <AudioPlayer
+                                tracks={proPlaylist}
+                                showTracklist
+                                repeatMode="all"
+                                plugins={proPlugins}
+                                accentColor="#F4B860"
+                                progressColor="#F4B860"
+                                backgroundColor="rgba(28,22,14,0.6)"
+                            />
+                        </div>
+                        <pre
+                            className="lab-state__note"
+                            style={{ whiteSpace: "pre-wrap", userSelect: "text" }}
+                        >
+                            {readout}
+                        </pre>
                     </div>
                 </div>
             </div>
@@ -972,6 +1112,67 @@ function AudioBackendSection() {
     )
 }
 
+/* ----------------------------- Plugin registry section ----------------------------- */
+function PluginRegistrySection() {
+    const plugins = useActivePluginInstances()
+    const [lyricLine, setLyricLine] = useState("")
+
+    useEffect(() => {
+        const el = document.getElementById("registry-lyrics-line")
+        if (el) {
+            const observer = new MutationObserver(() => setLyricLine(el.textContent ?? ""))
+            observer.observe(el, { characterData: true, childList: true, subtree: true })
+            setLyricLine(el.textContent ?? "")
+            return () => observer.disconnect()
+        }
+    }, [])
+
+    return (
+        <section className="lab-section">
+            <h2 className="lab-section__title">
+                12. Plugin registry
+                <small>browse · install · toggle</small>
+            </h2>
+            <p className="lab-section__desc">
+                The <code>PluginRegistryProvider</code> wraps a registry of
+                built-in SEIHouse plugins. Browse available plugins, install
+                them, and toggle them active/inactive. Active plugins are
+                passed into the <code>AudioPlayer</code> below — install the
+                keyboard plugin to control playback with Space/J/K/L, or add
+                analytics to see console.table output.
+            </p>
+            <div className="lab-section__grid">
+                <div className="lab-plugin-registry-section">
+                    <PluginManagerPanel />
+                    <div className="lab-plugin-registry-player">
+                        <h3 className="lab-plugin-registry-player__title">
+                            AudioPlayer with active registry plugins
+                            <span className="lab-plugin-manager__badge">
+                                {plugins.length} active
+                            </span>
+                        </h3>
+                        <AudioPlayer
+                            tracks={playlist}
+                            showTracklist
+                            repeatMode="all"
+                            plugins={plugins}
+                            accentColor="#7C5CFF"
+                            progressColor="#7C5CFF"
+                            backgroundColor="rgba(20,20,28,0.6)"
+                        />
+                        <div
+                            id="registry-lyrics-line"
+                            className="lab-plugin-registry-player__lyric-line"
+                        >
+                            {lyricLine || "Install Lyrics Sync to see synced text here"}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    )
+}
+
 /* ----------------------------- Waveform demo ----------------------------- */
 function WaveformSection() {
     const [backend, setBackend] = useState<AudioBackendKind>("html5")
@@ -979,7 +1180,7 @@ function WaveformSection() {
     return (
         <section className="lab-section">
             <h2 className="lab-section__title">
-                11. Waveform
+                13. Waveform
                 <small>wavesurfer.js scrubber</small>
             </h2>
             <p className="lab-section__desc">
@@ -1302,6 +1503,13 @@ function Lab() {
             <PluginArchitectureSection />
 
             <AudioBackendSection />
+
+            <AutomixProSection />
+
+            {/* ============== 12. Plugin registry ============== */}
+            <PluginRegistryProvider>
+                <PluginRegistrySection />
+            </PluginRegistryProvider>
 
             <WaveformSection />
         </div>

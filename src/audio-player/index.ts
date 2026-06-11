@@ -51,6 +51,8 @@ export { trackKey } from "./utils/trackKey"
 export { checkCodecSupport } from "./utils/checkCodecSupport"
 export { ProgressBar } from "./components/ProgressBar"
 export { VolumeControl } from "./components/VolumeControl"
+export { QueueDrawer } from "./components/QueueDrawer"
+export type { QueueDrawerProps } from "./components/QueueDrawer"
 
 // Headless adapter layer: Downshift-style prop getters and utilities over an
 // existing engine/session — no styling, no second engine.

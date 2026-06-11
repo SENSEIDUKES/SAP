@@ -253,6 +253,10 @@ export interface SessionEngine extends AudioPlayerEngine {
     previous: () => void
     /** Empty the queue and stop playback. */
     clearQueue: () => void
+    /** Move an item within the queue (drag-and-drop reorder). */
+    moveQueueItem: (fromIndex: number, toIndex: number) => void
+    /** Remove a track from the queue by index. No-op for the active track. */
+    removeFromQueue: (index: number) => void
     /** Toggle shuffled playback order. */
     toggleShuffle: () => void
     /** Cycle repeat mode: off → all → one → off. */

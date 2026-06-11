@@ -1,6 +1,8 @@
+import { useState, useCallback } from "react"
 import type { CSSProperties } from "react"
 import type { AudioPlayerTheme } from "../types"
 import { useAudioSession } from "../session/AudioSessionContext"
+import { QueueDrawer } from "../components/QueueDrawer"
 import { ProgressBar } from "../components/ProgressBar"
 import { VolumeControl } from "../components/VolumeControl"
 import { formatTime } from "../utils/formatTime"
@@ -39,6 +41,7 @@ export function FullCardPlayer({
     ...theme
 }: FullCardPlayerProps) {
     const s = useAudioSession()
+    const [queueDrawerOpen, setQueueDrawerOpen] = useState(false)
     const {
         currentTrack,
         currentIndex,
@@ -66,6 +69,9 @@ export function FullCardPlayer({
     const themeVars = buildThemeVars(theme)
     const isEmpty = queue.length === 0
 
+    const handleOpenQueue = useCallback(() => setQueueDrawerOpen(true), [])
+    const handleCloseQueue = useCallback(() => setQueueDrawerOpen(false), [])
+
     return (
         <div
             className={`ap-fc${className ? ` ${className}` : ""}`}
@@ -73,6 +79,17 @@ export function FullCardPlayer({
             role="region"
             aria-label="Now playing"
         >
+            {/* Queue drawer (Up Next) — reads session queue directly */}
+            <QueueDrawer
+                queue={queue}
+                currentIndex={currentIndex}
+                open={queueDrawerOpen}
+                onClose={handleCloseQueue}
+                onPlayTrack={s.playTrack}
+                onReorder={s.moveQueueItem}
+                onRemove={s.removeFromQueue}
+            />
+
             {isEmpty && (
                 <div className="ap-banner ap-banner--info ap-anim-in" role="status">
                     <ErrorIcon />
@@ -209,6 +226,25 @@ export function FullCardPlayer({
                     onVolumeChange={s.setVolume}
                     onToggleMute={s.toggleMute}
                 />
+            )}
+
+            {!isEmpty && (
+                <button
+                    type="button"
+                    className="ap-wide-btn ap-wide-btn--ghost ap-tap"
+                    onClick={handleOpenQueue}
+                    aria-label="Up next queue"
+                >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                        <line x1="8" y1="6" x2="21" y2="6" />
+                        <line x1="8" y1="12" x2="21" y2="12" />
+                        <line x1="8" y1="18" x2="21" y2="18" />
+                        <line x1="3" y1="6" x2="3.01" y2="6" />
+                        <line x1="3" y1="12" x2="3.01" y2="12" />
+                        <line x1="3" y1="18" x2="3.01" y2="18" />
+                    </svg>
+                    Up Next
+                </button>
             )}
         </div>
     )

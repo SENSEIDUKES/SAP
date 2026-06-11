@@ -1,6 +1,8 @@
+import { useState, useCallback } from "react"
 import type { CSSProperties } from "react"
 import type { AudioPlayerTheme } from "../types"
 import { useAudioSession } from "../session/AudioSessionContext"
+import { QueueDrawer } from "../components/QueueDrawer"
 import { ProgressBar } from "../components/ProgressBar"
 import { VolumeControl } from "../components/VolumeControl"
 import { formatTime } from "../utils/formatTime"
@@ -40,10 +42,14 @@ export function StickyBottomPlayer({
     ...theme
 }: StickyBottomPlayerProps) {
     const s = useAudioSession()
+    const [queueDrawerOpen, setQueueDrawerOpen] = useState(false)
 
     if (s.queue.length === 0 || !s.currentTrack) return null
 
     const { currentTrack, isPlaying, isBuffering, shuffle, repeatMode, automix } = s
+
+    const handleOpenQueue = useCallback(() => setQueueDrawerOpen(true), [])
+    const handleCloseQueue = useCallback(() => setQueueDrawerOpen(false), [])
 
     return (
         <div
@@ -52,6 +58,17 @@ export function StickyBottomPlayer({
             role="region"
             aria-label="Playback bar"
         >
+            {/* Queue drawer (Up Next) — reads session queue directly */}
+            <QueueDrawer
+                queue={s.queue}
+                currentIndex={s.currentIndex}
+                open={queueDrawerOpen}
+                onClose={handleCloseQueue}
+                onPlayTrack={s.playTrack}
+                onReorder={s.moveQueueItem}
+                onRemove={s.removeFromQueue}
+            />
+
             <div className="ap-sb__meta">
                 <span className="ap-sb__title" title={currentTrack.title}>
                     {currentTrack.title}
@@ -115,6 +132,21 @@ export function StickyBottomPlayer({
                         aria-pressed={automix}
                     >
                         <AutomixIcon />
+                    </button>
+                    <button
+                        type="button"
+                        className="ap-icon-btn ap-tap"
+                        onClick={handleOpenQueue}
+                        aria-label="Up next queue"
+                    >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                            <line x1="8" y1="6" x2="21" y2="6" />
+                            <line x1="8" y1="12" x2="21" y2="12" />
+                            <line x1="8" y1="18" x2="21" y2="18" />
+                            <line x1="3" y1="6" x2="3.01" y2="6" />
+                            <line x1="3" y1="12" x2="3.01" y2="12" />
+                            <line x1="3" y1="18" x2="3.01" y2="18" />
+                        </svg>
                     </button>
                 </div>
                 <div className="ap-sb__scrub">

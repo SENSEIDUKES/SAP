@@ -134,6 +134,20 @@ function AudioPlayerInner(props: AudioPlayerProps) {
     } = props
 
     const tracks = resolveTrackList(tracksProp)
+    const tracksSignature = useMemo(
+        () =>
+            tracks
+                .map((track) =>
+                    JSON.stringify([
+                        trackKey(track),
+                        track.audioFile ?? "",
+                        track.title ?? "",
+                        track.artist ?? "",
+                    ])
+                )
+                .join("|"),
+        [tracks]
+    )
     const isPlaylistMode = tracks.length > 0
     const [trackIndex, setTrackIndex] = useState(0)
     const [showLyrics, setShowLyrics] = useState(false)
@@ -155,10 +169,17 @@ function AudioPlayerInner(props: AudioPlayerProps) {
     const menuItemRefs = useRef<Array<HTMLButtonElement | null>>([])
     const shareTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-    // Sync localQueue when tracks prop changes.
+    // Sync localQueue only when the logical track list changes. Parent renders
+    // often recreate the array instance; resetting on identity alone would wipe
+    // local queue edits such as reorder/remove.
     useEffect(() => {
         setLocalQueue(tracks)
-    }, [tracks])
+        setTrackIndex((index) => {
+            if (tracks.length === 0) return 0
+            return Math.min(index, tracks.length - 1)
+        })
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [tracksSignature])
 
     useEffect(() => {
         return () => {
@@ -583,11 +604,14 @@ function AudioPlayerInner(props: AudioPlayerProps) {
     const handleQueuePlayTrack = useCallback(
         (index: number) => {
             if (index !== trackIndex) {
+                pendingPlayRef.current = true
                 setTrackIndex(index)
+            } else if (!isPlaying) {
+                engine.play(true)
             }
             setQueueOpen(false)
         },
-        [trackIndex]
+        [engine, isPlaying, trackIndex]
     )
 
     const handleQueueReorder = useCallback(
@@ -797,6 +821,7 @@ function AudioPlayerInner(props: AudioPlayerProps) {
                 <QueueDrawer
                     queue={localQueue}
                     currentIndex={trackIndex}
+                    isPlaying={isPlaying}
                     open={queueOpen}
                     onClose={() => setQueueOpen(false)}
                     onPlayTrack={handleQueuePlayTrack}

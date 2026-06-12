@@ -144,84 +144,6 @@
     background-color: var(--ap-accent);
     color: var(--ap-play-icon);
 }
-.ap-menu__panel {
-    position: absolute;
-    top: calc(100% + 6px);
-    right: 0;
-    min-width: 200px;
-    max-width: min(280px, calc(100vw - 24px));
-    max-height: min(60vh, 320px);
-    overflow-y: auto;
-    padding: 6px;
-    border-radius: 10px;
-    background-color: rgba(20, 20, 24, 0.92);
-    border: 1px solid var(--ap-accent);
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    color: var(--ap-text);
-    z-index: 20;
-    transform-origin: top right;
-}
-.ap-menu__item {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    width: 100%;
-    padding: 8px 10px;
-    border: none;
-    background: transparent;
-    color: inherit;
-    border-radius: 8px;
-    cursor: pointer;
-    font-size: 13px;
-    font-weight: 500;
-    text-align: left;
-}
-.ap-menu__item:hover {
-    background-color: rgba(255, 255, 255, 0.08);
-}
-.ap-menu__label {
-    display: inline-flex;
-    align-items: center;
-    gap: 10px;
-    color: var(--ap-text);
-}
-.ap-menu__label svg {
-    color: var(--ap-accent);
-    flex-shrink: 0;
-}
-.ap-menu__switch {
-    position: relative;
-    width: 34px;
-    height: 20px;
-    border-radius: 999px;
-    background-color: rgba(255, 255, 255, 0.18);
-    flex-shrink: 0;
-    transition: background-color 0.15s ease;
-}
-.ap-menu__knob {
-    position: absolute;
-    top: 2px;
-    left: 2px;
-    width: 16px;
-    height: 16px;
-    border-radius: 50%;
-    background-color: #ffffff;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
-    transition: transform 0.15s ease;
-}
-.ap-menu__switch--on {
-    background-color: var(--ap-accent);
-}
-.ap-menu__switch--on .ap-menu__knob {
-    transform: translateX(14px);
-    background-color: var(--ap-play-icon);
-}
 
 /* ----------------------------- Track info ----------------------------- */
 
@@ -449,22 +371,6 @@
     opacity: 0.5;
     cursor: not-allowed;
 }
-.ap-mode-btn--on {
-    background-color: rgba(255, 255, 255, 0.12);
-    box-shadow: inset 0 0 0 1px var(--ap-accent);
-}
-.ap-menu__value {
-    min-width: 34px;
-    padding: 2px 7px;
-    border-radius: 999px;
-    background: rgba(255, 255, 255, 0.12);
-    color: var(--ap-text);
-    font-size: 11px;
-    font-weight: 700;
-    line-height: 1.4;
-    text-align: center;
-    text-transform: uppercase;
-}
 .ap-volume__slider {
     position: relative;
     flex: 1;
@@ -661,12 +567,8 @@
 .ap-wide-btn:focus-visible,
 .ap-tracklist__item:focus-visible,
 .ap-retry-btn:focus-visible,
-.ap-menu__btn:focus-visible,
-.ap-menu__item:focus-visible {
+.ap-menu__btn:focus-visible {
     box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.3);
-}
-.ap-menu__item:focus-visible {
-    background-color: rgba(255, 255, 255, 0.08);
 }
 
 @keyframes ap-pulse {
@@ -734,12 +636,9 @@
         width: 56px;
         height: 56px;
     }
-    .ap-btn--ghost {
+    .ap-btn--ghost:not(.ap-btn--sm) {
         width: 38px;
         height: 38px;
-    }
-    .ap-menu__panel {
-        max-width: calc(100vw - 24px);
     }
 }
 
@@ -766,13 +665,30 @@
         width: 56px;
         height: 56px;
     }
-    .ap-btn--ghost {
+    .ap-btn--ghost:not(.ap-btn--sm) {
         width: 38px;
         height: 38px;
     }
-    .ap-menu__panel {
-        max-width: calc(100cqw - 16px);
-        min-width: min(200px, calc(100cqw - 16px));
+}
+
+/* Ultra-narrow embeds (deeply nested cards at 320px viewports): shrink the
+   transport one more step so the five-button row never clips. Budget:
+   26 + 34 + 48 + 34 + 26 + 4×6 gaps = 192px. */
+@container ap-player (max-width: 300px) {
+    .ap-transport {
+        gap: 6px;
+    }
+    .ap-btn--play {
+        width: 48px;
+        height: 48px;
+    }
+    .ap-btn--ghost:not(.ap-btn--sm) {
+        width: 34px;
+        height: 34px;
+    }
+    .ap-btn--sm {
+        width: 26px;
+        height: 26px;
     }
 }
 

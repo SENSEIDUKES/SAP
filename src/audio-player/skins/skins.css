@@ -20,11 +20,6 @@
     flex: 1;
 }
 
-/* Active state for shuffle / repeat toggles. */
-.ap-fc__toggle--on {
-    color: var(--ap-accent);
-    background-color: rgba(255, 255, 255, 0.12);
-}
 
 /* ----------------------------- Art / hero sizing -----------------------------
    Reusable sizing contract for album / hero artwork. Square by default,
@@ -63,6 +58,7 @@
     position: relative;
     box-sizing: border-box;
     width: 100%;
+    container: ap-fc / inline-size;
     padding: 24px;
     border-radius: 16px;
     background-color: var(--ap-bg);
@@ -81,10 +77,22 @@
 .ap-fc *::after {
     box-sizing: border-box;
 }
+/* "…" trigger pinned to the card's top-right corner; the counter and title
+   below pad around it so text never slides underneath. */
+.ap-fc__menu {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    z-index: 10;
+}
 .ap-fc__counter {
     text-align: center;
     font-size: 12px;
     opacity: 0.5;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    padding-inline: 44px;
 }
 .ap-fc__info {
     display: flex;
@@ -109,6 +117,45 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+/* Narrow embeds (sidebars, 320px phones): tighten type and transport so the
+   five-button row fits without clipping. */
+@container ap-fc (max-width: 360px) {
+    .ap-fc__title {
+        font-size: clamp(17px, 6.5cqw, 22px);
+    }
+    .ap-fc__artist {
+        font-size: 13px;
+    }
+    .ap-fc .ap-transport {
+        gap: 8px;
+    }
+    .ap-fc .ap-btn--play {
+        width: 56px;
+        height: 56px;
+    }
+    .ap-fc .ap-btn--ghost:not(.ap-btn--sm) {
+        width: 38px;
+        height: 38px;
+    }
+}
+/* Ultra-narrow embeds: one more shrink step, mirroring the base player. */
+@container ap-fc (max-width: 300px) {
+    .ap-fc .ap-transport {
+        gap: 6px;
+    }
+    .ap-fc .ap-btn--play {
+        width: 48px;
+        height: 48px;
+    }
+    .ap-fc .ap-btn--ghost:not(.ap-btn--sm) {
+        width: 34px;
+        height: 34px;
+    }
+    .ap-fc .ap-btn--sm {
+        width: 26px;
+        height: 26px;
+    }
 }
 
 /* ----------------------------- Vault row ----------------------------- */
@@ -143,6 +190,8 @@
     opacity: 0.5;
 }
 .ap-vr__play {
+    /* Anchor for the coarse-pointer hit-area pseudo-element. */
+    position: relative;
     width: 38px;
     height: 38px;
     flex-shrink: 0;
@@ -176,13 +225,12 @@
 }
 
 /* ----------------------------- Sticky bottom bar ----------------------------- */
+/* The bar is a container; layout lives on __inner (a container can't style
+   itself with its own container query). */
 .ap-sb {
     box-sizing: border-box;
-    display: flex;
-    align-items: center;
-    gap: 20px;
     width: 100%;
-    padding: 12px 20px;
+    container: ap-sb / inline-size;
     background-color: rgba(18, 18, 24, 0.92);
     -webkit-backdrop-filter: blur(16px);
     backdrop-filter: blur(16px);
@@ -202,13 +250,18 @@
     bottom: 0;
     z-index: 50;
 }
+.ap-sb__inner {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 12px 20px;
+}
 .ap-sb__meta {
     display: flex;
     flex-direction: column;
     gap: 2px;
     min-width: 0;
-    width: 180px;
-    flex-shrink: 0;
+    flex: 0 1 clamp(120px, 20cqw, 220px);
 }
 .ap-sb__title {
     font-size: 14px;
@@ -236,6 +289,7 @@
     display: flex;
     align-items: center;
     gap: 10px;
+    min-width: 0;
 }
 .ap-sb__play {
     width: 40px;
@@ -315,6 +369,8 @@
     white-space: nowrap;
 }
 .ap-ms__play {
+    /* Anchor for the coarse-pointer hit-area pseudo-element. */
+    position: relative;
     width: 38px;
     height: 38px;
     flex-shrink: 0;
@@ -392,11 +448,55 @@
     margin-top: 6px;
 }
 
-@media (max-width: 720px) {
-    .ap-sb__meta {
-        width: 120px;
-    }
+/* Sticky bar responsive behavior (container-based so it also works inside
+   sidebars and demo frames, not just full-bleed at the viewport bottom). */
+@container ap-sb (max-width: 860px) {
     .ap-sb__volume {
         display: none;
+    }
+}
+/* Phone widths: meta stacks above the controls + scrubber so nothing
+   competes for one row. Budget at 320px: 296px of content vs ~224px of
+   controls (5 transport buttons + the "…" trigger at 8px gaps). */
+@container ap-sb (max-width: 560px) {
+    .ap-sb__inner {
+        flex-wrap: wrap;
+        gap: 6px 10px;
+        padding: 10px 12px;
+    }
+    .ap-sb__meta {
+        flex: 1 1 100%;
+        text-align: center;
+    }
+    .ap-sb__center {
+        flex: 1 1 100%;
+    }
+    .ap-sb__controls {
+        gap: 8px;
+    }
+}
+/* Ultra-narrow embeds (the bar inside a padded card at 320px viewports):
+   tighten gaps and time stamps one more step. */
+@container ap-sb (max-width: 380px) {
+    .ap-sb__controls {
+        gap: 6px;
+    }
+    .ap-sb__scrub {
+        gap: 6px;
+    }
+    .ap-sb__t {
+        min-width: 30px;
+    }
+}
+
+/* Give the small faces' main play buttons the same coarse-pointer hit-area
+   expansion the base buttons get. */
+@media (pointer: coarse) {
+    .ap-ms__play::after,
+    .ap-vr__play::after,
+    .ap-sea__play::after {
+        content: "";
+        position: absolute;
+        inset: -8px;
     }
 }

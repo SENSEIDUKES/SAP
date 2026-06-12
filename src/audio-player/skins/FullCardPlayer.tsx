@@ -5,18 +5,19 @@ import { useAudioSession } from "../session/AudioSessionContext"
 import { QueueDrawer } from "../components/QueueDrawer"
 import { ProgressBar } from "../components/ProgressBar"
 import { VolumeControl } from "../components/VolumeControl"
+import { SAPController } from "../components/SAPController"
+import { useShareTrack } from "../components/useShareTrack"
 import { formatTime } from "../utils/formatTime"
 import { buildThemeVars } from "./themeVars"
 import {
-    AutomixIcon,
+    Back10Icon,
+    DotsIcon,
     ErrorIcon,
+    Fwd10Icon,
     NextIcon,
     PauseIcon,
     PlayIcon,
     PrevIcon,
-    RepeatIcon,
-    RepeatOneIcon,
-    ShuffleIcon,
     SpinnerIcon,
 } from "./icons"
 import "./skins.css"
@@ -29,10 +30,11 @@ export interface FullCardPlayerProps extends AudioPlayerTheme {
 }
 
 /**
- * The rich "now playing" card, driven by the global session. Mirrors the body
- * of the standalone AudioPlayer (track info, transport, progress, volume) but
- * reads and controls the shared engine. This skin is the designated owner of
- * the autoplay-blocked prompt so users don't see five simultaneous prompts.
+ * The rich "now playing" card, driven by the global session. Keeps the core
+ * transport visible (prev / back 10 / play / fwd 10 / next); shuffle, repeat,
+ * automix, queue, info, and share live in the SAP Controller behind the "…"
+ * button. This skin is the designated owner of the autoplay-blocked prompt so
+ * users don't see five simultaneous prompts.
  */
 export function FullCardPlayer({
     showVolume = true,
@@ -42,6 +44,7 @@ export function FullCardPlayer({
 }: FullCardPlayerProps) {
     const s = useAudioSession()
     const [queueDrawerOpen, setQueueDrawerOpen] = useState(false)
+    const [controllerOpen, setControllerOpen] = useState(false)
     const {
         currentTrack,
         currentIndex,
@@ -72,6 +75,15 @@ export function FullCardPlayer({
     const handleOpenQueue = useCallback(() => setQueueDrawerOpen(true), [])
     const handleCloseQueue = useCallback(() => setQueueDrawerOpen(false), [])
 
+    const { share, copied: shareCopied, nativeShare } = useShareTrack(
+        currentTrack?.title ?? "",
+        currentTrack?.artist ?? ""
+    )
+    const handleShareClick = useCallback(() => {
+        if (nativeShare) setControllerOpen(false)
+        share()
+    }, [nativeShare, share])
+
     return (
         <div
             className={`ap-fc${className ? ` ${className}` : ""}`}
@@ -90,6 +102,54 @@ export function FullCardPlayer({
                 onReorder={s.moveQueueItem}
                 onRemove={s.removeFromQueue}
             />
+
+            {/* SAP Controller: shuffle/repeat/automix, queue, info, share. */}
+            <SAPController
+                open={controllerOpen}
+                onClose={() => setControllerOpen(false)}
+                playback={{
+                    shuffle,
+                    onToggleShuffle: s.toggleShuffle,
+                    repeatMode,
+                    onCycleRepeat: s.cycleRepeat,
+                    automix,
+                    onToggleAutomix: s.toggleAutomix,
+                }}
+                queue={
+                    isEmpty
+                        ? undefined
+                        : { count: queue.length, onOpenQueue: handleOpenQueue }
+                }
+                info={
+                    currentTrack
+                        ? {
+                              title: currentTrack.title ?? "",
+                              artist: currentTrack.artist ?? "",
+                              duration,
+                              lyrics: currentTrack.lyrics,
+                          }
+                        : undefined
+                }
+                share={
+                    currentTrack
+                        ? { onShare: handleShareClick, copied: shareCopied }
+                        : undefined
+                }
+                {...theme}
+            />
+
+            <div className="ap-fc__menu">
+                <button
+                    type="button"
+                    className="ap-icon-btn ap-tap ap-menu__btn"
+                    onClick={() => setControllerOpen(true)}
+                    aria-label="Player options"
+                    aria-haspopup="dialog"
+                    aria-expanded={controllerOpen}
+                >
+                    <DotsIcon />
+                </button>
+            </div>
 
             {isEmpty && (
                 <div className="ap-banner ap-banner--info ap-anim-in" role="status">
@@ -132,6 +192,8 @@ export function FullCardPlayer({
             {!isEmpty && (
                 <div className="ap-fc__counter">
                     Track {currentIndex + 1} of {queue.length}
+                    {shuffle ? " · Shuffle" : ""}
+                    {repeatMode !== "off" ? ` · Repeat ${repeatMode}` : ""}
                     {automix ? " · Automix" : ""}
                 </div>
             )}
@@ -165,21 +227,21 @@ export function FullCardPlayer({
             <div className="ap-transport" role="group" aria-label="Playback controls">
                 <button
                     type="button"
-                    className={`ap-icon-btn ap-tap${shuffle ? " ap-fc__toggle--on" : ""}`}
-                    onClick={s.toggleShuffle}
-                    aria-label="Shuffle"
-                    aria-pressed={shuffle}
-                >
-                    <ShuffleIcon />
-                </button>
-                <button
-                    type="button"
                     className="ap-btn ap-btn--ghost ap-btn--sm ap-tap"
                     onClick={s.previous}
                     disabled={!canPrevious}
                     aria-label="Previous track"
                 >
                     <PrevIcon />
+                </button>
+                <button
+                    type="button"
+                    className="ap-btn ap-btn--ghost ap-tap"
+                    onClick={() => s.seekBy(-10)}
+                    disabled={!hasAudio}
+                    aria-label="Skip backward 10 seconds"
+                >
+                    <Back10Icon />
                 </button>
                 <button
                     type="button"
@@ -192,29 +254,21 @@ export function FullCardPlayer({
                 </button>
                 <button
                     type="button"
+                    className="ap-btn ap-btn--ghost ap-tap"
+                    onClick={() => s.seekBy(10)}
+                    disabled={!hasAudio}
+                    aria-label="Skip forward 10 seconds"
+                >
+                    <Fwd10Icon />
+                </button>
+                <button
+                    type="button"
                     className="ap-btn ap-btn--ghost ap-btn--sm ap-tap"
                     onClick={s.next}
                     disabled={!canNext}
                     aria-label="Next track"
                 >
                     <NextIcon />
-                </button>
-                <button
-                    type="button"
-                    className={`ap-icon-btn ap-tap${repeatMode !== "off" ? " ap-fc__toggle--on" : ""}`}
-                    onClick={s.cycleRepeat}
-                    aria-label={`Repeat: ${repeatMode}`}
-                >
-                    {repeatMode === "one" ? <RepeatOneIcon /> : <RepeatIcon />}
-                </button>
-                <button
-                    type="button"
-                    className={`ap-icon-btn ap-tap${automix ? " ap-fc__toggle--on" : ""}`}
-                    onClick={s.toggleAutomix}
-                    aria-label="Automix Lite"
-                    aria-pressed={automix}
-                >
-                    <AutomixIcon />
                 </button>
             </div>
 
@@ -227,25 +281,6 @@ export function FullCardPlayer({
                     onVolumeChange={s.setVolume}
                     onToggleMute={s.toggleMute}
                 />
-            )}
-
-            {!isEmpty && (
-                <button
-                    type="button"
-                    className="ap-wide-btn ap-wide-btn--ghost ap-tap"
-                    onClick={handleOpenQueue}
-                    aria-label="Up next queue"
-                >
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                        <line x1="8" y1="6" x2="21" y2="6" />
-                        <line x1="8" y1="12" x2="21" y2="12" />
-                        <line x1="8" y1="18" x2="21" y2="18" />
-                        <line x1="3" y1="6" x2="3.01" y2="6" />
-                        <line x1="3" y1="12" x2="3.01" y2="12" />
-                        <line x1="3" y1="18" x2="3.01" y2="18" />
-                    </svg>
-                    Up Next
-                </button>
             )}
         </div>
     )

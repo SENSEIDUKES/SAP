@@ -23,7 +23,7 @@ import {
     PluginManagerPanel,
 } from "../audio-player"
 import type { AudioBackendKind } from "../audio-player"
-import { SAMPLE, BROKEN, playlist, proPlaylist, SEA_THEME, SEA_ARTS } from "./data"
+import { SAMPLE, BROKEN, playlist, proPlaylist, stressPlaylist, SEA_THEME, SEA_ARTS } from "./data"
 
 /* ----------------------------- Reusable lab chrome ----------------------------- */
 function Checklist() {
@@ -65,6 +65,48 @@ function PhoneFrame({ children, art, topLeft, topRight }: { children: ReactNode;
                 <div className="lab-phone__handle" />
             </div>
         </div>
+    )
+}
+
+/* Each column pins the rich faces to an exact device width. Anything that
+   crosses the dashed outline is a horizontal-overflow bug. */
+const MATRIX_WIDTHS = [320, 375, 390, 430] as const
+
+function MobileWidthMatrixSection() {
+    return (
+        <section className="lab-section">
+            <h2 className="lab-section__title">
+                Mobile width matrix
+                <small>320 · 375 · 390 · 430</small>
+            </h2>
+            <p className="lab-section__desc">
+                The rich faces rendered at exact device widths (dashed outline
+                = the budget). Anything crossing the outline is a
+                horizontal-overflow bug. The long-title fixture exercises
+                truncation. Open the &ldquo;…&rdquo; controller in each face —
+                the sheet must cover the viewport cleanly and never clip.
+            </p>
+            <div className="lab-section__grid">
+                <div className="lab-width-row">
+                    {MATRIX_WIDTHS.map((w) => (
+                        <div key={w} className="lab-width-cell" style={{ width: w }}>
+                            <div className="lab-width-cell__label">{w}px</div>
+                            <AudioPlayer
+                                tracks={stressPlaylist}
+                                repeatMode="all"
+                                accentColor="#ffffff"
+                                progressColor="#ffffff"
+                                backgroundColor="rgba(20,20,28,0.6)"
+                            />
+                            <AudioSessionProvider initialQueue={stressPlaylist}>
+                                <FullCardPlayer {...SEA_THEME} />
+                                <StickyBottomPlayer fixed={false} {...SEA_THEME} />
+                            </AudioSessionProvider>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </section>
     )
 }
 
@@ -734,6 +776,8 @@ export function Lab() {
                     </div>
                 </section>
 
+                <MobileWidthMatrixSection />
+
                 <section className="lab-section">
                     <h2 className="lab-section__title">
                         Sticky player inside a scrollable list
@@ -781,7 +825,7 @@ export function Lab() {
                                 <RapidStep n={3} title="Skip +/-10s" body="Mash back10 / fwd10. Time stays within bounds; no NaN in the timer." />
                                 <RapidStep n={4} title="Volume / mute" body="Slide volume to 0, click mute, click unmute, drag back up. Audio should restore to previous level." />
                                 <RapidStep n={5} title="Keyboard" body="Focus the player and press Space, J, K, L, N, P. Shortcuts must not fire when a button has focus." />
-                                <RapidStep n={6} title="Lyrics / share" body="Toggle lyrics; open the ... menu and click Share (clipboard path on desktop). The 'copied' badge should disappear after 2s." />
+                                <RapidStep n={6} title="Controller / share" body="Open the ... controller sheet; toggle lyrics in Info and tap Share (clipboard path on desktop). The 'copied' badge should disappear after 2s." />
                             </div>
                         </div>
                     </div>

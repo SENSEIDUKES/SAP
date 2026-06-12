@@ -55,6 +55,15 @@ export { WaveformProgress } from "./components/WaveformProgress"
 export { extractPeaks, computePeaksFromUrl } from "./core/waveform/peaks"
 export { QueueDrawer } from "./components/QueueDrawer"
 export type { QueueDrawerProps } from "./components/QueueDrawer"
+export { SAPController } from "./components/SAPController"
+export type {
+    SAPControllerProps,
+    SAPControllerPlayback,
+    SAPControllerQueue,
+    SAPControllerInfo,
+    SAPControllerShare,
+} from "./components/SAPController"
+export { useShareTrack } from "./components/useShareTrack"
 
 // Headless adapter layer: Downshift-style prop getters and utilities over an
 // existing engine/session — no styling, no second engine.

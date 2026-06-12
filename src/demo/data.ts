@@ -55,6 +55,20 @@ export const playlist: Track[] = [
 // Clean playlist (no broken track) so transitions actually fire back to back.
 export const proPlaylist: Track[] = playlist.filter((t) => t.audioFile !== BROKEN)
 
+// Truncation fixture: absurdly long title/artist prepended to the standard
+// playlist so the width-matrix QA section exercises ellipsis everywhere.
+export const stressPlaylist: Track[] = [
+    {
+        id: "stress-1",
+        title: "An Extraordinarily Long Track Title That Should Truncate Gracefully (Extended Club Edit) [Remastered 2026]",
+        artist: "SEIHouse feat. The Unreasonably Long Artist Collective Ensemble",
+        audioFile: SAMPLE,
+        lyrics: "Long-form lyrics line one\nLine two keeps going and going\nLine three for scroll testing\nLine four\nLine five\nLine six\nLine seven\nLine eight",
+        purchaseUrl: "https://example.com/buy/stress",
+    },
+    ...playlist,
+]
+
 export const SEA_THEME = {
     accentColor: "#7C5CFF",
     progressColor: "#7C5CFF",

@@ -118,7 +118,7 @@ export const WORKSHOP_FACES: readonly WorkshopFaceDefinition[] = [
         id: "full-card",
         label: "FullCardPlayer",
         description:
-            "Rich now-playing card with transport, progress, volume, and shuffle/repeat toggles.",
+            "Rich now-playing card with core transport, progress, volume, and the SAP controller behind “…”.",
         sessionBased: true,
         controls: ["theme", "display"],
         render: ({ settings }) => (

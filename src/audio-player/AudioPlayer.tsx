@@ -21,6 +21,8 @@ import { ProgressBar } from "./components/ProgressBar"
 import { WaveformProgress } from "./components/WaveformProgress"
 import { VolumeControl } from "./components/VolumeControl"
 import { QueueDrawer } from "./components/QueueDrawer"
+import { SAPController } from "./components/SAPController"
+import { useShareTrack } from "./components/useShareTrack"
 import { formatTime } from "./utils/formatTime"
 import { resolveTrackList } from "./utils/trackList"
 import { trackKey } from "./utils/trackKey"
@@ -163,10 +165,8 @@ function AudioPlayerInner(props: AudioPlayerProps) {
     const tracksSignature = useMemo(() => trackListSignature(tracks), [tracks])
     const isPlaylistMode = tracks.length > 0
     const [trackIndex, setTrackIndex] = useState(0)
-    const [showLyrics, setShowLyrics] = useState(false)
-    const [showCopied, setShowCopied] = useState(false)
     const [announcement, setAnnouncement] = useState("")
-    const [menuOpen, setMenuOpen] = useState(false)
+    const [controllerOpen, setControllerOpen] = useState(false)
     const [localAutoPlay, setLocalAutoPlay] = useState(autoPlay)
     const [localShuffle, setLocalShuffle] = useState(shuffle)
     const [localRepeatMode, setLocalRepeatMode] = useState<RepeatMode>(
@@ -177,10 +177,6 @@ function AudioPlayerInner(props: AudioPlayerProps) {
     const [localQueue, setLocalQueue] = useState<Track[]>(tracks)
     const [queueOpen, setQueueOpen] = useState(false)
     const rootRef = useRef<HTMLDivElement>(null)
-    const menuRef = useRef<HTMLDivElement>(null)
-    const menuButtonRef = useRef<HTMLButtonElement>(null)
-    const menuItemRefs = useRef<Array<HTMLButtonElement | null>>([])
-    const shareTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
     const previousTracksSignatureRef = useRef(tracksSignature)
 
     // Sync localQueue only when the logical track list changes. Parent renders
@@ -196,14 +192,6 @@ function AudioPlayerInner(props: AudioPlayerProps) {
         })
     }, [tracks, tracksSignature])
 
-    useEffect(() => {
-        return () => {
-            if (shareTimeoutRef.current !== null) {
-                clearTimeout(shareTimeoutRef.current)
-            }
-        }
-    }, [])
-
     // Keep local toggles in sync with prop changes (e.g. properties panel edits).
     useEffect(() => {
         setLocalAutoPlay(autoPlay)
@@ -217,34 +205,6 @@ function AudioPlayerInner(props: AudioPlayerProps) {
     useEffect(() => {
         setLocalAutomix(automix)
     }, [automix])
-
-    // Close the ellipsis menu when clicking outside the player. Escape closes
-    // the menu and returns focus to the menu button so keyboard users land
-    // somewhere predictable.
-    useEffect(() => {
-        if (!menuOpen) return
-        const handleClick = (event: MouseEvent) => {
-            if (
-                menuRef.current &&
-                !menuRef.current.contains(event.target as Node)
-            ) {
-                setMenuOpen(false)
-            }
-        }
-        const handleKey = (event: globalThis.KeyboardEvent) => {
-            if (event.key === "Escape") {
-                setMenuOpen(false)
-                // Return focus to the trigger so keyboard users don't get lost.
-                menuButtonRef.current?.focus()
-            }
-        }
-        document.addEventListener("mousedown", handleClick)
-        document.addEventListener("keydown", handleKey)
-        return () => {
-            document.removeEventListener("mousedown", handleClick)
-            document.removeEventListener("keydown", handleKey)
-        }
-    }, [menuOpen])
 
     // Keep the index valid if the queue shrinks / mode changes.
     useEffect(() => {
@@ -528,74 +488,6 @@ function AudioPlayerInner(props: AudioPlayerProps) {
         previousTrackFn: previousTrack,
     }
 
-    const toggleLyrics = useCallback(() => setShowLyrics((v) => !v), [])
-    const toggleMenu = useCallback(() => {
-        setMenuOpen((v) => {
-            // When opening, reset focus to the first menu item.
-            if (!v) {
-                // Defer until after the items render.
-                requestAnimationFrame(() => {
-                    menuItemRefs.current[0]?.focus()
-                })
-            }
-            return !v
-        })
-    }, [])
-
-    const focusMenuItem = useCallback(
-        (delta: number) => {
-            const items = menuItemRefs.current.filter(
-                (el): el is HTMLButtonElement => el !== null
-            )
-            if (items.length === 0) return
-            const activeIndex = items.findIndex(
-                (el) => el === document.activeElement
-            )
-            const start = activeIndex === -1 ? 0 : activeIndex
-            const next =
-                (start + delta + items.length) % items.length
-            items[next]?.focus()
-        },
-        []
-    )
-
-    const handleMenuKeyDown = useCallback(
-        (event: KeyboardEvent<HTMLDivElement>) => {
-            switch (event.key) {
-                case "ArrowDown":
-                    event.preventDefault()
-                    focusMenuItem(1)
-                    break
-                case "ArrowUp":
-                    event.preventDefault()
-                    focusMenuItem(-1)
-                    break
-                case "Home":
-                    event.preventDefault()
-                    menuItemRefs.current[0]?.focus()
-                    break
-                case "End":
-                    event.preventDefault()
-                    {
-                        const last =
-                            menuItemRefs.current.filter(
-                                (el): el is HTMLButtonElement => el !== null
-                            )
-                        last[last.length - 1]?.focus()
-                    }
-                    break
-                case "Tab":
-                    // Trap focus inside the open menu.
-                    event.preventDefault()
-                    focusMenuItem(event.shiftKey ? -1 : 1)
-                    break
-                default:
-                    break
-            }
-        },
-        [focusMenuItem]
-    )
-
     const handleAutoPlayToggle = useCallback(
         () => setLocalAutoPlay((v) => !v),
         []
@@ -668,41 +560,17 @@ function AudioPlayerInner(props: AudioPlayerProps) {
         [trackIndex]
     )
 
-    const handleShare = useCallback(() => {
-        if (typeof window === "undefined") return
-        const url = window.location.href
-        const text = `${currentTrack.title} by ${currentTrack.artist}`
-        if (navigator.share) {
-            navigator.share({ title: text, url }).catch(() => {})
-        } else if (navigator.clipboard) {
-            navigator.clipboard.writeText(url).then(() => {
-                if (shareTimeoutRef.current !== null) {
-                    clearTimeout(shareTimeoutRef.current)
-                }
-                setShowCopied(true)
-                shareTimeoutRef.current = setTimeout(
-                    () => setShowCopied(false),
-                    2000
-                )
-            })
-        }
-    }, [currentTrack.title, currentTrack.artist])
-
+    const { share, copied: shareCopied, nativeShare } = useShareTrack(
+        currentTrack.title ?? "",
+        currentTrack.artist ?? ""
+    )
     const handleShareClick = useCallback(() => {
-        if (
-            typeof navigator !== "undefined" &&
-            typeof navigator.share === "function"
-        ) {
-            // The native share sheet takes over the screen; close the menu and
-            // park focus on the trigger so keyboard users land somewhere
-            // predictable when the sheet is dismissed.
-            setMenuOpen(false)
-            menuButtonRef.current?.focus()
-        }
-        // Clipboard fallback: keep the menu open so the inline "copied"
-        // feedback on the Share item stays visible.
-        handleShare()
-    }, [handleShare])
+        // The native share sheet takes over the screen, so the controller
+        // closes first; the clipboard fallback keeps it open so the inline
+        // "copied" feedback stays visible.
+        if (nativeShare) setControllerOpen(false)
+        share()
+    }, [nativeShare, share])
 
     // Keyboard shortcuts scoped to the player root (not window) so they never
     // fight focused controls or other parts of the host app. Space/Enter on an
@@ -845,6 +713,50 @@ function AudioPlayerInner(props: AudioPlayerProps) {
                 />
             )}
 
+            {/* SAP Controller: screen-level sheet for the advanced actions
+                that used to crowd the face (shuffle, repeat, automix,
+                autoplay, queue, lyrics/info, share, plugins). */}
+            <SAPController
+                open={controllerOpen}
+                onClose={() => setControllerOpen(false)}
+                playback={{
+                    shuffle: localShuffle,
+                    onToggleShuffle: handleShuffleToggle,
+                    repeatMode: localRepeatMode,
+                    onCycleRepeat: handleRepeatCycle,
+                    ...(isPlaylistMode
+                        ? {
+                              automix: localAutomix,
+                              onToggleAutomix: handleAutomixToggle,
+                          }
+                        : {}),
+                    autoPlay: localAutoPlay,
+                    onToggleAutoPlay: handleAutoPlayToggle,
+                }}
+                queue={
+                    isPlaylistMode
+                        ? {
+                              count: localQueue.length,
+                              onOpenQueue: () => setQueueOpen(true),
+                          }
+                        : undefined
+                }
+                info={{
+                    title: currentTrack.title ?? "",
+                    artist: currentTrack.artist ?? "",
+                    duration,
+                    lyrics: currentTrack.lyrics,
+                }}
+                share={{ onShare: handleShareClick, copied: shareCopied }}
+                pluginNames={externalPlugins.map((plugin) => plugin.name)}
+                accentColor={accentColor}
+                playIconColor={playIconColor}
+                textColor={textColor}
+                progressColor={progressColor}
+                trackColor={trackColor}
+                backgroundColor={backgroundColor}
+            />
+
             {/* SR live region */}
             <div className="ap-sr-only" role="status" aria-live="polite" aria-atomic="true">
                 {announcement}
@@ -912,123 +824,17 @@ function AudioPlayerInner(props: AudioPlayerProps) {
                 )}
 
                 <div className="ap-top-actions">
-                    <div className="ap-menu" ref={menuRef}>
+                    <div className="ap-menu">
                         <button
                             type="button"
                             className="ap-icon-btn ap-tap ap-menu__btn"
-                            onClick={toggleMenu}
-                            aria-label="More options"
-                            aria-haspopup="menu"
-                            aria-expanded={menuOpen}
-                            ref={menuButtonRef}
+                            onClick={() => setControllerOpen(true)}
+                            aria-label="Player options"
+                            aria-haspopup="dialog"
+                            aria-expanded={controllerOpen}
                         >
                             <DotsIcon />
                         </button>
-                        {menuOpen && (
-                            <div
-                                className="ap-menu__panel ap-anim-in"
-                                role="menu"
-                                onKeyDown={handleMenuKeyDown}
-                            >
-                                <button
-                                    type="button"
-                                    role="menuitemcheckbox"
-                                    aria-checked={localAutoPlay}
-                                    className="ap-menu__item ap-tap"
-                                    onClick={handleAutoPlayToggle}
-                                    ref={(el) => {
-                                        menuItemRefs.current[0] = el
-                                    }}
-                                >
-                                    <span className="ap-menu__label">
-                                        <AutoPlayIcon />
-                                        Auto Play
-                                    </span>
-                                    <span
-                                        className={`ap-menu__switch${localAutoPlay ? " ap-menu__switch--on" : ""}`}
-                                        aria-hidden="true"
-                                    >
-                                        <span className="ap-menu__knob" />
-                                    </span>
-                                </button>
-                                <button
-                                    type="button"
-                                    role="menuitemcheckbox"
-                                    aria-checked={localShuffle}
-                                    className="ap-menu__item ap-tap"
-                                    onClick={handleShuffleToggle}
-                                    ref={(el) => {
-                                        menuItemRefs.current[1] = el
-                                    }}
-                                >
-                                    <span className="ap-menu__label">
-                                        <ShuffleIcon />
-                                        Shuffle
-                                    </span>
-                                    <span
-                                        className={`ap-menu__switch${localShuffle ? " ap-menu__switch--on" : ""}`}
-                                        aria-hidden="true"
-                                    >
-                                        <span className="ap-menu__knob" />
-                                    </span>
-                                </button>
-                                <button
-                                    type="button"
-                                    role="menuitem"
-                                    className="ap-menu__item ap-tap"
-                                    onClick={handleRepeatCycle}
-                                    ref={(el) => {
-                                        menuItemRefs.current[2] = el
-                                    }}
-                                >
-                                    <span className="ap-menu__label">
-                                        {localRepeatMode === "one" ? <RepeatOneIcon /> : <RepeatIcon />}
-                                        Repeat
-                                    </span>
-                                    <span className="ap-menu__value">{localRepeatMode}</span>
-                                </button>
-                                {isPlaylistMode && (
-                                    <button
-                                        type="button"
-                                        role="menuitemcheckbox"
-                                        aria-checked={localAutomix}
-                                        className="ap-menu__item ap-tap"
-                                        onClick={handleAutomixToggle}
-                                        ref={(el) => {
-                                            menuItemRefs.current[3] = el
-                                        }}
-                                    >
-                                        <span className="ap-menu__label">
-                                            <AutomixIcon />
-                                            Automix Lite
-                                        </span>
-                                        <span
-                                            className={`ap-menu__switch${localAutomix ? " ap-menu__switch--on" : ""}`}
-                                            aria-hidden="true"
-                                        >
-                                            <span className="ap-menu__knob" />
-                                        </span>
-                                    </button>
-                                )}
-                                <button
-                                    type="button"
-                                    role="menuitem"
-                                    className="ap-menu__item ap-tap"
-                                    onClick={handleShareClick}
-                                    ref={(el) => {
-                                        menuItemRefs.current[4] = el
-                                    }}
-                                >
-                                    <span className="ap-menu__label">
-                                        {showCopied ? <CheckIcon /> : <ShareIcon />}
-                                        Share
-                                    </span>
-                                    {showCopied && (
-                                        <span className="ap-menu__value">copied</span>
-                                    )}
-                                </button>
-                            </div>
-                        )}
                     </div>
                 </div>
 
@@ -1107,17 +913,6 @@ function AudioPlayerInner(props: AudioPlayerProps) {
                     {isPlaylistMode && (
                         <button
                             type="button"
-                            className={`ap-icon-btn ap-tap${localShuffle ? " ap-mode-btn--on" : ""}`}
-                            onClick={handleShuffleToggle}
-                            aria-label="Shuffle"
-                            aria-pressed={localShuffle}
-                        >
-                            <ShuffleIcon />
-                        </button>
-                    )}
-                    {isPlaylistMode && (
-                        <button
-                            type="button"
                             className="ap-btn ap-btn--ghost ap-btn--sm ap-tap"
                             onClick={previousTrack}
                             disabled={!canPreviousTrack}
@@ -1182,16 +977,6 @@ function AudioPlayerInner(props: AudioPlayerProps) {
                             <NextIcon />
                         </button>
                     )}
-                    {isPlaylistMode && (
-                        <button
-                            type="button"
-                            className={`ap-icon-btn ap-tap${localRepeatMode !== "off" ? " ap-mode-btn--on" : ""}`}
-                            onClick={handleRepeatCycle}
-                            aria-label={`Repeat: ${localRepeatMode}`}
-                        >
-                            {localRepeatMode === "one" ? <RepeatOneIcon /> : <RepeatIcon />}
-                        </button>
-                    )}
                 </div>
 
                 {showVolume && (
@@ -1205,30 +990,6 @@ function AudioPlayerInner(props: AudioPlayerProps) {
                     />
                 )}
 
-                {isPlaylistMode && (
-                    <button
-                        type="button"
-                        className="ap-wide-btn ap-wide-btn--ghost ap-tap"
-                        onClick={() => setQueueOpen(true)}
-                        aria-label="Up next queue"
-                    >
-                        <QueueIcon />
-                        Up Next
-                    </button>
-                )}
-
-                {currentTrack.lyrics && (
-                    <button
-                        type="button"
-                        className="ap-wide-btn ap-wide-btn--ghost ap-tap"
-                        onClick={toggleLyrics}
-                        aria-expanded={showLyrics}
-                    >
-                        <LyricsIcon />
-                        {showLyrics ? "Hide Lyrics" : "Show Lyrics"}
-                    </button>
-                )}
-
                 {currentTrack.purchaseUrl && (
                     <a
                         className="ap-wide-btn ap-wide-btn--solid ap-tap"
@@ -1239,10 +1000,6 @@ function AudioPlayerInner(props: AudioPlayerProps) {
                         <HeartIcon />
                         Support Artist
                     </a>
-                )}
-
-                {showLyrics && currentTrack.lyrics && (
-                    <div className="ap-lyrics ap-anim-in">{currentTrack.lyrics}</div>
                 )}
 
                 {isPlaylistMode && showTracklist && (
@@ -1343,27 +1100,6 @@ const NextIcon = () => (
         <rect x="16.5" y="4" width="2.5" height="16" rx="0.5" />
     </svg>
 )
-const ShareIcon = () => (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <circle cx="18" cy="5" r="3" />
-        <circle cx="6" cy="12" r="3" />
-        <circle cx="18" cy="19" r="3" />
-        <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
-        <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
-    </svg>
-)
-const CheckIcon = () => (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <polyline points="20 6 9 17 4 12" />
-    </svg>
-)
-const LyricsIcon = () => (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <path d="M9 18V5l12-2v13" />
-        <circle cx="6" cy="18" r="3" />
-        <circle cx="18" cy="16" r="3" />
-    </svg>
-)
 const HeartIcon = () => (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
         <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
@@ -1374,52 +1110,5 @@ const DotsIcon = () => (
         <circle cx="5" cy="12" r="1.8" />
         <circle cx="12" cy="12" r="1.8" />
         <circle cx="19" cy="12" r="1.8" />
-    </svg>
-)
-const AutoPlayIcon = () => (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <polygon points="6 4 20 12 6 20 6 4" fill="currentColor" stroke="none" />
-    </svg>
-)
-const AutomixIcon = () => (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <path d="M3 7c6 0 6 10 12 10h6" />
-        <path d="M3 17c6 0 6-10 12-10h6" />
-    </svg>
-)
-const ShuffleIcon = () => (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <polyline points="16 3 21 3 21 8" />
-        <line x1="4" y1="20" x2="21" y2="3" />
-        <polyline points="21 16 21 21 16 21" />
-        <line x1="15" y1="15" x2="21" y2="21" />
-        <line x1="4" y1="4" x2="9" y2="9" />
-    </svg>
-)
-const RepeatIcon = () => (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <polyline points="17 1 21 5 17 9" />
-        <path d="M3 11V9a4 4 0 0 1 4-4h14" />
-        <polyline points="7 23 3 19 7 15" />
-        <path d="M21 13v2a4 4 0 0 1-4 4H3" />
-    </svg>
-)
-const RepeatOneIcon = () => (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <polyline points="17 1 21 5 17 9" />
-        <path d="M3 11V9a4 4 0 0 1 4-4h14" />
-        <polyline points="7 23 3 19 7 15" />
-        <path d="M21 13v2a4 4 0 0 1-4 4H3" />
-        <text x="12" y="15" textAnchor="middle" fontSize="8" fontWeight="700" fill="currentColor" stroke="none" fontFamily="system-ui, sans-serif">1</text>
-    </svg>
-)
-const QueueIcon = () => (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <line x1="8" y1="6" x2="21" y2="6" />
-        <line x1="8" y1="12" x2="21" y2="12" />
-        <line x1="8" y1="18" x2="21" y2="18" />
-        <line x1="3" y1="6" x2="3.01" y2="6" />
-        <line x1="3" y1="12" x2="3.01" y2="12" />
-        <line x1="3" y1="18" x2="3.01" y2="18" />
     </svg>
 )

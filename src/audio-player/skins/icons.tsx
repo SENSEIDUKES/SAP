@@ -70,3 +70,68 @@ export const ErrorIcon = () => (
         <line x1="12" y1="16" x2="12.01" y2="16" />
     </svg>
 )
+export const Back10Icon = () => (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M3.5 12a8.5 8.5 0 1 0 2.7-6.2" />
+        <polyline points="3 3 6.2 5.8 3.4 8.5" />
+        <text x="12" y="15" textAnchor="middle" fontSize="7" fontWeight="700" fill="currentColor" stroke="none" fontFamily="system-ui, -apple-system, sans-serif">10</text>
+    </svg>
+)
+export const Fwd10Icon = () => (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M20.5 12a8.5 8.5 0 1 1-2.7-6.2" />
+        <polyline points="21 3 17.8 5.8 20.6 8.5" />
+        <text x="12" y="15" textAnchor="middle" fontSize="7" fontWeight="700" fill="currentColor" stroke="none" fontFamily="system-ui, -apple-system, sans-serif">10</text>
+    </svg>
+)
+export const DotsIcon = () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+        <circle cx="5" cy="12" r="1.8" />
+        <circle cx="12" cy="12" r="1.8" />
+        <circle cx="19" cy="12" r="1.8" />
+    </svg>
+)
+export const QueueIcon = () => (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <line x1="8" y1="6" x2="21" y2="6" />
+        <line x1="8" y1="12" x2="21" y2="12" />
+        <line x1="8" y1="18" x2="21" y2="18" />
+        <line x1="3" y1="6" x2="3.01" y2="6" />
+        <line x1="3" y1="12" x2="3.01" y2="12" />
+        <line x1="3" y1="18" x2="3.01" y2="18" />
+    </svg>
+)
+export const ShareIcon = () => (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <circle cx="18" cy="5" r="3" />
+        <circle cx="6" cy="12" r="3" />
+        <circle cx="18" cy="19" r="3" />
+        <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
+        <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+    </svg>
+)
+export const CheckIcon = () => (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <polyline points="20 6 9 17 4 12" />
+    </svg>
+)
+export const LyricsIcon = () => (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M9 18V5l12-2v13" />
+        <circle cx="6" cy="18" r="3" />
+        <circle cx="18" cy="16" r="3" />
+    </svg>
+)
+export const AutoPlayIcon = () => (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <polygon points="6 4 20 12 6 20 6 4" fill="currentColor" stroke="none" />
+    </svg>
+)
+export const PluginIcon = () => (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M12 2v6" />
+        <path d="M8 8h8v4a4 4 0 0 1-8 0z" />
+        <path d="M9 2v4M15 2v4" />
+        <path d="M12 16v6" />
+    </svg>
+)

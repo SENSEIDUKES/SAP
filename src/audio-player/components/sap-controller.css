@@ -1,0 +1,262 @@
+/* SAP Controller — the shared screen-level command sheet opened from a
+   face's "…" button. Bottom sheet on phones, centered dialog on desktop.
+   Lives above the queue drawer (z 100) and the sticky bar (z 50). */
+
+.sap-ctl {
+    position: fixed;
+    inset: 0;
+    z-index: 120;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+.sap-ctl__backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.55);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+}
+.sap-ctl__sheet {
+    position: relative;
+    width: min(480px, 100%);
+    max-height: min(80dvh, 640px);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    background: rgba(20, 20, 24, 0.97);
+    color: var(--ap-text, #ffffff);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-bottom: none;
+    border-radius: 16px 16px 0 0;
+    box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.5);
+    padding: 8px 16px calc(16px + env(safe-area-inset-bottom));
+    animation: sap-sheet-in 0.22s ease;
+}
+/* Desktop: centered dialog instead of a bottom sheet. */
+@media (min-width: 640px) {
+    .sap-ctl {
+        align-items: center;
+        padding: 24px;
+    }
+    .sap-ctl__sheet {
+        border-radius: 16px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+        box-shadow: 0 24px 64px rgba(0, 0, 0, 0.55);
+    }
+}
+
+.sap-ctl__grab {
+    width: 40px;
+    height: 4px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.25);
+    margin: 4px auto 8px;
+}
+@media (min-width: 640px) {
+    .sap-ctl__grab {
+        display: none;
+    }
+}
+
+.sap-ctl__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 2px 4px 6px;
+}
+.sap-ctl__title {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+}
+.sap-ctl__close {
+    width: 36px;
+    height: 36px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    background: rgba(255, 255, 255, 0.06);
+    color: inherit;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    padding: 0;
+}
+.sap-ctl__close:hover {
+    background: rgba(255, 255, 255, 0.12);
+}
+
+.sap-ctl__section {
+    padding-bottom: 4px;
+}
+.sap-ctl__heading {
+    margin: 12px 4px 4px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    opacity: 0.5;
+}
+
+/* Large touch rows (≥48px) — the whole row is the control. */
+.sap-ctl__row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    width: 100%;
+    min-height: 48px;
+    padding: 10px 12px;
+    border: none;
+    background: transparent;
+    color: inherit;
+    border-radius: 10px;
+    font-size: 15px;
+    font-weight: 500;
+    text-align: left;
+    cursor: pointer;
+}
+.sap-ctl__row:hover {
+    background: rgba(255, 255, 255, 0.08);
+}
+.sap-ctl__row:focus-visible {
+    outline: 2px solid var(--ap-accent, #ffffff);
+    outline-offset: -2px;
+}
+.sap-ctl__label {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.sap-ctl__label svg {
+    color: var(--ap-accent, #ffffff);
+    flex-shrink: 0;
+}
+.sap-ctl__value {
+    flex-shrink: 0;
+    font-size: 13px;
+    font-weight: 600;
+    opacity: 0.65;
+    text-transform: capitalize;
+}
+
+/* Switch — the .ap-menu__switch pattern, sized up for touch. */
+.sap-ctl__switch {
+    position: relative;
+    width: 40px;
+    height: 22px;
+    border-radius: 999px;
+    background-color: rgba(255, 255, 255, 0.18);
+    flex-shrink: 0;
+    transition: background-color 0.15s ease;
+}
+.sap-ctl__knob {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background-color: #ffffff;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+    transition: transform 0.15s ease;
+}
+.sap-ctl__switch--on {
+    background-color: var(--ap-accent, #ffffff);
+}
+.sap-ctl__switch--on .sap-ctl__knob {
+    transform: translateX(18px);
+    background-color: var(--ap-play-icon, #000000);
+}
+
+/* Read-only metadata block in the Info section. */
+.sap-ctl__meta {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 8px 12px;
+}
+.sap-ctl__meta-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 16px;
+    font-size: 13.5px;
+}
+.sap-ctl__meta-key {
+    flex-shrink: 0;
+    opacity: 0.5;
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 10.5px;
+    letter-spacing: 0.06em;
+}
+.sap-ctl__meta-val {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-align: right;
+    font-weight: 500;
+}
+
+/* Lyrics disclosure body — scrolls inside the sheet. */
+.sap-ctl__lyrics {
+    margin: 4px 4px 8px;
+    padding: 12px 14px;
+    border-radius: 10px;
+    background-color: rgba(0, 0, 0, 0.25);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    font-size: 13.5px;
+    line-height: 1.7;
+    white-space: pre-wrap;
+    max-height: 220px;
+    overflow-y: auto;
+}
+
+/* Plugins list (read-only for V1). */
+.sap-ctl__plugins {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+}
+.sap-ctl__plugin {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    min-height: 44px;
+    padding: 8px 12px;
+    font-size: 14px;
+    font-weight: 500;
+}
+
+@keyframes sap-sheet-in {
+    from {
+        transform: translateY(24px);
+        opacity: 0;
+    }
+    to {
+        transform: none;
+        opacity: 1;
+    }
+}
+@media (prefers-reduced-motion: reduce) {
+    .sap-ctl__sheet {
+        animation: none;
+    }
+    .sap-ctl__switch,
+    .sap-ctl__knob {
+        transition: none;
+    }
+}

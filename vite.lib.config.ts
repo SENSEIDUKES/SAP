@@ -17,8 +17,8 @@ export default defineConfig({
     build: {
         lib: {
             entry: "src/audio-player/index.ts",
-            formats: ["es"],
-            fileName: () => "index.js",
+            formats: ["es", "cjs"],
+            fileName: (format) => `index.${format === "es" ? "js" : "cjs"}`,
             cssFileName: "styles",
         },
         outDir: "dist",

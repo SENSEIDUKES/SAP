@@ -146,7 +146,7 @@ require('@seihouse/audio-player/styles.css')
 ### Using Individual Components
 
 ```typescript
-import { 
+import {
   AudioPlayer,
   FullCardPlayer,
   VaultRowPlayer,
@@ -155,6 +155,7 @@ import {
   SeaCardPlayer,
   PluginManager,
   useAudioPlayer,
+  useAutomix,
   createAutomixPlugin,
   createWaveformPlugin
 } from '@seihouse/audio-player'

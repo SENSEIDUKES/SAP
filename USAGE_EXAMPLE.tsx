@@ -1,9 +1,9 @@
 // Example: Using the Audio Player in another repository
 
 import React from 'react'
-import { 
-  AudioPlayer, 
-  FullCardPlayer, 
+import {
+  AudioPlayer,
+  FullCardPlayer,
   StickyBottomPlayer,
   useAudioSession,
   AudioSessionProvider,
@@ -29,7 +29,7 @@ export function MyApp() {
   return (
     <div className="app">
       <h1>My Music App</h1>
-      <AudioPlayer 
+      <AudioPlayer
         tracks={tracks}
         accentColor="#6366f1"
         backgroundColor="#0f172a"
@@ -52,13 +52,13 @@ export function MultiPlayerApp() {
 
 // Headless usage with custom UI
 export function CustomPlayerUI() {
-  const { 
-    isPlaying, 
-    currentTime, 
+  const {
+    isPlaying,
+    currentTime,
     duration,
-    play, 
+    play,
     pause,
-    seek 
+    seek,
   } = useAudioSession()
 
   return (
@@ -78,11 +78,12 @@ export function CustomPlayerUI() {
   )
 }
 
+// With plugins
 export function AppWithPlugins() {
   const plugins = [
-    createAutomixPlugin(),
-    createKeyboardShortcutPlugin(),
-    createWaveformPlugin(),
+    createAutomixPlugin({ enabled: true, crossfadeMs: 3000 }),
+    createKeyboardShortcutPlugin({ enabled: true }),
+    createWaveformPlugin({ enabled: true }),
   ]
 
   return (

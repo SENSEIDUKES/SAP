@@ -1,16 +1,15 @@
 {
   "name": "@seihouse/audio-player",
   "version": "1.0.0",
-  "description": "Portable custom audio player (React + TypeScript) with plugin-based AutoMix modes and waveform render slots",
+  "description": "Portable custom audio player (React + TypeScript) with smart AutoMix and waveform render slots",
   "type": "module",
-  "main": "./dist/index.cjs",
+  "main": "./dist/index.js",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "import": "./dist/index.js",
-      "require": "./dist/index.cjs"
+      "import": "./dist/index.js"
     },
     "./styles.css": "./dist/styles.css"
   },

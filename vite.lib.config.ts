@@ -8,6 +8,7 @@ export default defineConfig({
         react(),
         dts({
             include: ["src/audio-player"],
+            exclude: ["src/**/__tests__/**"],
             outDir: "dist",
             strictOutput: true,
             rollupTypes: true,
@@ -16,8 +17,8 @@ export default defineConfig({
     build: {
         lib: {
             entry: "src/audio-player/index.ts",
-            name: "SEIHouseAudioPlayer",
-            fileName: (format) => `index.${format === "es" ? "js" : "cjs"}`,
+            formats: ["es"],
+            fileName: () => "index.js",
             cssFileName: "styles",
         },
         outDir: "dist",
@@ -28,6 +29,7 @@ export default defineConfig({
                     react: "React",
                     "react-dom": "ReactDOM",
                 },
+                exports: "named",
                 assetFileNames: (assetInfo) => {
                     if (assetInfo.name?.endsWith(".css")) {
                         return "styles.css"

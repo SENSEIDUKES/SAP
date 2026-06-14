@@ -7,7 +7,9 @@ import { ProgressBar } from "../components/ProgressBar"
 import { VolumeControl } from "../components/VolumeControl"
 import { SAPController } from "../components/SAPController"
 import { useShareTrack } from "../components/useShareTrack"
+import { useMediaSessionObserver } from "../headless/useMediaSessionObserver"
 import { formatTime } from "../utils/formatTime"
+import { isMobileDevice } from "../utils/device"
 import { buildThemeVars } from "./themeVars"
 import {
     Back10Icon,
@@ -24,8 +26,10 @@ import "./skins.css"
 export interface StickyBottomPlayerProps extends AudioPlayerTheme {
     /** Use CSS `position: fixed` to pin to the viewport bottom. Defaults to true. */
     fixed?: boolean
-    /** Show the volume control (hidden on narrow layouts by default). */
+    /** Show the volume control. On mobile, defaults to hidden unless `enableMobileVolume` is true. */
     showVolume?: boolean
+    /** Force rendering the volume control on mobile browsers. Defaults to false. */
+    enableMobileVolume?: boolean
     className?: string
     style?: CSSProperties
 }
@@ -39,10 +43,12 @@ export interface StickyBottomPlayerProps extends AudioPlayerTheme {
 export function StickyBottomPlayer({
     fixed = true,
     showVolume = true,
+    enableMobileVolume = false,
     className,
     style,
     ...theme
 }: StickyBottomPlayerProps) {
+    const shouldShowVolume = showVolume && (enableMobileVolume || !isMobileDevice())
     const s = useAudioSession()
     const [queueDrawerOpen, setQueueDrawerOpen] = useState(false)
     const [controllerOpen, setControllerOpen] = useState(false)
@@ -58,6 +64,12 @@ export function StickyBottomPlayer({
         if (nativeShare) setControllerOpen(false)
         share()
     }, [nativeShare, share])
+
+    useMediaSessionObserver(s, {
+        title: s.currentTrack?.title ?? "",
+        artist: s.currentTrack?.artist ?? "",
+        album: "",
+    })
 
     // All hooks run before this bail-out so the hook order stays stable when
     // the queue transitions between empty and non-empty.
@@ -191,7 +203,7 @@ export function StickyBottomPlayer({
                     </div>
                 </div>
 
-                {showVolume && (
+                {shouldShowVolume && (
                     <div className="ap-sb__volume">
                         <VolumeControl
                             volume={s.volume}

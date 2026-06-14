@@ -26,6 +26,7 @@ import { useShareTrack } from "./components/useShareTrack"
 import { formatTime } from "./utils/formatTime"
 import { resolveTrackList } from "./utils/trackList"
 import { trackKey } from "./utils/trackKey"
+import { isMobileDevice } from "./utils/device"
 import "./audio-player.css"
 
 const DEFAULT_AUDIO =
@@ -145,6 +146,7 @@ function AudioPlayerInner(props: AudioPlayerProps) {
         darkenAmount = 0,
         showTracklist = false,
         showVolume = true,
+        enableMobileVolume = false,
         showWaveform = false,
         waveformHeight = 48,
         titleFont,
@@ -179,6 +181,8 @@ function AudioPlayerInner(props: AudioPlayerProps) {
     const [queueOpen, setQueueOpen] = useState(false)
     const rootRef = useRef<HTMLDivElement>(null)
     const previousTracksSignatureRef = useRef(tracksSignature)
+
+    const shouldShowVolume = showVolume && (enableMobileVolume || !isMobileDevice())
 
     // Sync localQueue only when the logical track list changes. Parent renders
     // often recreate the array instance; resetting on identity alone would wipe
@@ -981,7 +985,7 @@ function AudioPlayerInner(props: AudioPlayerProps) {
                     )}
                 </div>
 
-                {showVolume && (
+                {shouldShowVolume && (
                     <VolumeControl
                         volume={volume}
                         isMuted={isMuted}

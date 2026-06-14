@@ -92,7 +92,10 @@ export interface AudioPlayerProps extends AudioPlayerTheme {
     /** Darken overlay over the background image, 0–100. */
     darkenAmount?: number
     showTracklist?: boolean
+    /** Show the volume slider. On mobile, defaults to hidden unless `enableMobileVolume` is true. */
     showVolume?: boolean
+    /** Force rendering the volume slider on mobile browsers. Defaults to false. */
+    enableMobileVolume?: boolean
     /**
      * Render a wavesurfer.js waveform as the scrubber instead of the plain
      * progress bar. Lazy-loads wavesurfer; falls back to the progress bar

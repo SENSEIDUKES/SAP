@@ -7,7 +7,9 @@ import { ProgressBar } from "../components/ProgressBar"
 import { VolumeControl } from "../components/VolumeControl"
 import { SAPController } from "../components/SAPController"
 import { useShareTrack } from "../components/useShareTrack"
+import { useMediaSessionObserver } from "../headless/useMediaSessionObserver"
 import { formatTime } from "../utils/formatTime"
+import { isMobileDevice } from "../utils/device"
 import { buildThemeVars } from "./themeVars"
 import {
     Back10Icon,
@@ -23,8 +25,10 @@ import {
 import "./skins.css"
 
 export interface FullCardPlayerProps extends AudioPlayerTheme {
-    /** Show the volume slider. Defaults to true. */
+    /** Show the volume slider. On mobile, defaults to hidden unless `enableMobileVolume` is true. */
     showVolume?: boolean
+    /** Force rendering the volume slider on mobile browsers. Defaults to false. */
+    enableMobileVolume?: boolean
     className?: string
     style?: CSSProperties
 }
@@ -38,11 +42,13 @@ export interface FullCardPlayerProps extends AudioPlayerTheme {
  */
 export function FullCardPlayer({
     showVolume = true,
+    enableMobileVolume = false,
     className,
     style,
     ...theme
 }: FullCardPlayerProps) {
     const s = useAudioSession()
+    const shouldShowVolume = showVolume && (enableMobileVolume || !isMobileDevice())
     const [queueDrawerOpen, setQueueDrawerOpen] = useState(false)
     const [controllerOpen, setControllerOpen] = useState(false)
     const {
@@ -83,6 +89,12 @@ export function FullCardPlayer({
         if (nativeShare) setControllerOpen(false)
         share()
     }, [nativeShare, share])
+
+    useMediaSessionObserver(s, {
+        title: currentTrack?.title ?? "",
+        artist: currentTrack?.artist ?? "",
+        album: "",
+    })
 
     return (
         <div
@@ -272,7 +284,7 @@ export function FullCardPlayer({
                 </button>
             </div>
 
-            {showVolume && (
+            {shouldShowVolume && (
                 <VolumeControl
                     volume={volume}
                     isMuted={isMuted}

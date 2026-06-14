@@ -7,7 +7,10 @@ import { ProgressBar } from "../components/ProgressBar"
 import { VolumeControl } from "../components/VolumeControl"
 import { SAPController } from "../components/SAPController"
 import { useShareTrack } from "../components/useShareTrack"
+import { useMediaSessionObserver } from "../headless/useMediaSessionObserver"
 import { formatTime } from "../utils/formatTime"
+import { shouldRenderVolumeSlider } from "../utils/device"
+import { trackKey } from "../utils/trackKey"
 import { buildThemeVars } from "./themeVars"
 import { usePlayerSurface } from "../surfaces/usePlayerSurface"
 import { PlayerHero } from "../surfaces/PlayerHero"
@@ -30,8 +33,10 @@ import {
 import "./skins.css"
 
 export interface FullCardPlayerProps extends AudioPlayerTheme {
-    /** Show the volume slider. Defaults to true. */
+    /** Show the volume/mute control area. Defaults to true. */
     showVolume?: boolean
+    /** Explicitly allow the volume slider on mobile browsers. Defaults false. */
+    enableMobileVolume?: boolean
     className?: string
     style?: CSSProperties
 }
@@ -45,6 +50,7 @@ export interface FullCardPlayerProps extends AudioPlayerTheme {
  */
 export function FullCardPlayer({
     showVolume = true,
+    enableMobileVolume = false,
     className,
     style,
     ...theme
@@ -82,6 +88,21 @@ export function FullCardPlayer({
     // Engine gates `isBuffering` to active/pending playback (and clears it on
     // pause/ended), so the spinner can render straight from it.
     const showPlaySpinner = isBuffering
+    const showVolumeSlider = shouldRenderVolumeSlider(
+        showVolume,
+        enableMobileVolume
+    )
+
+    useMediaSessionObserver(s, {
+        title: currentTrack?.title ?? "",
+        artist: currentTrack?.artist ?? "",
+        album: "",
+        onNext: canNext ? s.next : undefined,
+        onPrevious: canPrevious ? s.previous : undefined,
+        sourceKey: currentTrack
+            ? `${currentIndex}:${trackKey(currentTrack)}`
+            : "empty",
+    })
 
     const handleOpenQueue = useCallback(() => setQueueDrawerOpen(true), [])
     const handleCloseQueue = useCallback(() => setQueueDrawerOpen(false), [])
@@ -324,6 +345,7 @@ export function FullCardPlayer({
                         volume={volume}
                         isMuted={isMuted}
                         disabled={!hasAudio}
+                        showSlider={showVolumeSlider}
                         volumeUnsupported={volumeUnsupported}
                         onVolumeChange={s.setVolume}
                         onToggleMute={s.toggleMute}

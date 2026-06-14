@@ -29,6 +29,7 @@ import { QueueDrawer } from "./components/QueueDrawer"
 import { SAPController } from "./components/SAPController"
 import { useShareTrack } from "./components/useShareTrack"
 import { formatTime } from "./utils/formatTime"
+import { shouldRenderVolumeSlider } from "./utils/device"
 import { resolveTrackList } from "./utils/trackList"
 import { trackKey } from "./utils/trackKey"
 import "./audio-player.css"
@@ -150,6 +151,7 @@ function AudioPlayerInner(props: AudioPlayerProps) {
         darkenAmount = 0,
         showTracklist = false,
         showVolume = true,
+        enableMobileVolume = false,
         showWaveform = false,
         waveformHeight = 48,
         titleFont,
@@ -304,6 +306,10 @@ function AudioPlayerInner(props: AudioPlayerProps) {
     // pause/ended/error/source-reset. So the spinner renders straight from it —
     // no idle/paused spinner, but the initial pending-play load still shows one.
     const showPlaySpinner = isBuffering
+    const showVolumeSlider = shouldRenderVolumeSlider(
+        showVolume,
+        enableMobileVolume
+    )
 
     const goToTrack = useCallback(
         (next: number | null) => {
@@ -1006,6 +1012,7 @@ function AudioPlayerInner(props: AudioPlayerProps) {
                         volume={volume}
                         isMuted={isMuted}
                         disabled={!hasAudio}
+                        showSlider={showVolumeSlider}
                         volumeUnsupported={volumeUnsupported}
                         onVolumeChange={setVolume}
                         onToggleMute={toggleMute}

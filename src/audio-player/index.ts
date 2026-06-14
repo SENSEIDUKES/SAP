@@ -53,6 +53,11 @@ export { formatTime } from "./utils/formatTime"
 export { trackKey } from "./utils/trackKey"
 export { checkCodecSupport } from "./utils/checkCodecSupport"
 export {
+    isIOS,
+    isMobileDevice,
+    shouldRenderVolumeSlider,
+} from "./utils/device"
+export {
     extractPalette,
     quantizePixels,
     relativeLuminance,

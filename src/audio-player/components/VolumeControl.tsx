@@ -5,11 +5,13 @@ interface VolumeControlProps {
     volume: number
     isMuted: boolean
     disabled: boolean
+    /** Render the draggable/programmatic volume slider. Defaults to true. */
+    showSlider?: boolean
     /**
      * True when the host environment (e.g. iOS Safari) ignores programmatic
-     * volume changes. The UI shows a small hint and the slider remains
-     * interactive so it still reflects user intent; the mute toggle is the
-     * guaranteed-effective control on those platforms.
+     * volume changes. Hosts should avoid rendering the slider by default on
+     * those platforms; when explicitly enabled, the hint clarifies the platform
+     * limit and the mute toggle remains the guaranteed-effective control.
      */
     volumeUnsupported?: boolean
     onVolumeChange: (value: number) => void
@@ -20,13 +22,13 @@ interface VolumeControlProps {
  * Mute toggle + a custom vertical-agnostic horizontal slider, built on the same
  * Pointer Events pattern as the scrubber for consistent behavior. Note: iOS
  * Safari ignores programmatic volume, so the mute button is the reliable control
- * there; the slider is effectively desktop-only. We surface a small hint to
- * users when we detect that the browser is not honoring the slider.
+ * there; callers should hide the slider on mobile unless explicitly enabled.
  */
 export function VolumeControl({
     volume,
     isMuted,
     disabled,
+    showSlider = true,
     volumeUnsupported = false,
     onVolumeChange,
     onToggleMute,
@@ -174,28 +176,30 @@ export function VolumeControl({
                     </svg>
                 )}
             </button>
-            <div
-                ref={trackRef}
-                className="ap-volume__slider"
-                role="slider"
-                tabIndex={disabled ? -1 : 0}
-                aria-label="Volume"
-                aria-valuemin={0}
-                aria-valuemax={100}
-                aria-valuenow={Math.round(pct)}
-                aria-valuetext={`${Math.round(pct)}% volume`}
-                aria-disabled={disabled}
-                onPointerDown={handlePointerDown}
-                onPointerMove={handlePointerMove}
-                onPointerUp={handlePointerUp}
-                onPointerCancel={handlePointerUp}
-                onKeyDown={handleKeyDown}
-            >
-                <div className="ap-volume__track" />
-                <div className="ap-volume__fill" style={{ width: `${pct}%` }} />
-                <div className="ap-volume__thumb" style={{ left: `${pct}%` }} />
-            </div>
-            {volumeUnsupported && !disabled && (
+            {showSlider && (
+                <div
+                    ref={trackRef}
+                    className="ap-volume__slider"
+                    role="slider"
+                    tabIndex={disabled ? -1 : 0}
+                    aria-label="Volume"
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                    aria-valuenow={Math.round(pct)}
+                    aria-valuetext={`${Math.round(pct)}% volume`}
+                    aria-disabled={disabled}
+                    onPointerDown={handlePointerDown}
+                    onPointerMove={handlePointerMove}
+                    onPointerUp={handlePointerUp}
+                    onPointerCancel={handlePointerUp}
+                    onKeyDown={handleKeyDown}
+                >
+                    <div className="ap-volume__track" />
+                    <div className="ap-volume__fill" style={{ width: `${pct}%` }} />
+                    <div className="ap-volume__thumb" style={{ left: `${pct}%` }} />
+                </div>
+            )}
+            {showSlider && volumeUnsupported && !disabled && (
                 <span
                     className="ap-volume__hint"
                     role="note"

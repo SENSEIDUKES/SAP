@@ -133,6 +133,11 @@ Details on error recovery, retry flow, autoplay-blocked handling, token-based st
 
 The officially supported browser and mobile behavior is documented in [`docs/browser-mobile-quality-matrix.md`](./docs/browser-mobile-quality-matrix.md).
 
+Mobile browsers render the mute control but hide the programmatic volume slider
+by default because iOS Safari ignores `audio.volume`. Desktop browsers keep the
+historical volume slider default. Hosts that intentionally want to expose the
+slider on mobile can pass `enableMobileVolume={true}` alongside `showVolume`.
+
 Use it to verify:
 
 - autoplay-blocked recovery,

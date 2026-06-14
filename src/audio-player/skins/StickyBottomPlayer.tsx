@@ -8,6 +8,7 @@ import { VolumeControl } from "../components/VolumeControl"
 import { SAPController } from "../components/SAPController"
 import { useShareTrack } from "../components/useShareTrack"
 import { formatTime } from "../utils/formatTime"
+import { shouldRenderVolumeSlider } from "../utils/device"
 import { buildThemeVars } from "./themeVars"
 import {
     Back10Icon,
@@ -24,8 +25,10 @@ import "./skins.css"
 export interface StickyBottomPlayerProps extends AudioPlayerTheme {
     /** Use CSS `position: fixed` to pin to the viewport bottom. Defaults to true. */
     fixed?: boolean
-    /** Show the volume control (hidden on narrow layouts by default). */
+    /** Show the volume/mute control area. Defaults to true. */
     showVolume?: boolean
+    /** Explicitly allow the volume slider on mobile browsers. Defaults false. */
+    enableMobileVolume?: boolean
     className?: string
     style?: CSSProperties
 }
@@ -39,6 +42,7 @@ export interface StickyBottomPlayerProps extends AudioPlayerTheme {
 export function StickyBottomPlayer({
     fixed = true,
     showVolume = true,
+    enableMobileVolume = false,
     className,
     style,
     ...theme
@@ -58,6 +62,10 @@ export function StickyBottomPlayer({
         if (nativeShare) setControllerOpen(false)
         share()
     }, [nativeShare, share])
+    const showVolumeSlider = shouldRenderVolumeSlider(
+        showVolume,
+        enableMobileVolume
+    )
 
     // All hooks run before this bail-out so the hook order stays stable when
     // the queue transitions between empty and non-empty.
@@ -200,6 +208,7 @@ export function StickyBottomPlayer({
                             volume={s.volume}
                             isMuted={s.isMuted}
                             disabled={!s.hasAudio}
+                            showSlider={showVolumeSlider}
                             volumeUnsupported={s.volumeUnsupported}
                             onVolumeChange={s.setVolume}
                             onToggleMute={s.toggleMute}

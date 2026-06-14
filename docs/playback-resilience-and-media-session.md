@@ -12,7 +12,7 @@ platform media integration.
 |---|---|---|
 | Headless engine | `src/audio-player/useAudioPlayer.ts` | Owns a single hidden `<audio>`, manages playback, error recovery, buffering, volume, and a rAF-driven time-update loop. |
 | Session provider | `src/audio-player/session/AudioSessionContext.tsx` | Wraps the headless engine with a queue, shuffle, repeat, and automix management so multiple skins share one audio element. |
-| Player component | `src/audio-player/AudioPlayer.tsx` | Wires the engine into the presentational UI: transport, progress, volume, track info, error banners, keyboard shortcuts, and Media Session API. |
+| Player component | `src/audio-player/AudioPlayer.tsx` | Wires the engine into the presentational UI: transport, progress, volume/mute controls, track info, error banners, keyboard shortcuts, and Media Session API. |
 | Skins | `src/audio-player/skins/*.tsx` | Alternative visual surfaces (FullCard, StickyBottom, MiniSidebar, VaultRow, SeaCard) that accept an engine or session as props. |
 
 The core principle: **the engine drives state; the UI reads state and calls
@@ -99,8 +99,9 @@ including mobile Chrome and Safari).
 ### Implementation location
 
 The integration lives in `src/audio-player/AudioPlayer.tsx` inside
-`AudioPlayerInner`. It is not in the headless engine because metadata comes
-from the consumer-level track object, not the raw audio URL.
+`AudioPlayerInner` and in `src/audio-player/skins/FullCardPlayer.tsx` for the
+shared-session full-card skin. It is not in the headless engine because metadata
+comes from the consumer-level track object, not the raw audio URL.
 
 ### Metadata set
 
@@ -146,7 +147,7 @@ handlers are deregistered (`setActionHandler(action, null)`).
 
 | Behaviour | Details |
 |---|---|
-| **Programmatic volume** | iOS Safari ignores `audio.volume`. Detected once and exposed via `volumeUnsupported` flag. The UI shows a mute-only control and hides the slider on iOS. |
+| **Programmatic volume** | iOS Safari ignores `audio.volume`. Detected once and exposed via `volumeUnsupported` flag. Desktop keeps the volume slider by default; mobile browsers render mute-only by default and hide the slider unless the host explicitly passes `enableMobileVolume={true}`. |
 | **Autoplay** | Never guaranteed on mobile. The info banner handles this. |
 | **Media Session artwork** | Some mobile browsers ignore artwork served over HTTP or with missing `type` hints. Ensure the `backgroundImage.src` is HTTPS and JPEG/PNG. |
 | **Background playback** | iOS Safari requires the `<audio>` element to stay in the DOM. The player keeps its `<audio>` mounted as long as the component is rendered. |

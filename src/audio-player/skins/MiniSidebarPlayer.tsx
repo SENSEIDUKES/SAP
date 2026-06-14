@@ -100,7 +100,7 @@ export function MiniSidebarPlayer({
                     currentTime={currentTime}
                     duration={duration}
                     buffered={s.buffered}
-                    disabled={!hasAudio}
+                    disabled={!s.hasAudio}
                     isSeeking={s.isSeeking}
                     onSeek={s.seek}
                     onSeekStart={() => s.setSeeking(true)}

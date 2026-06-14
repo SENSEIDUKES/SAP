@@ -70,7 +70,10 @@ export function SeaCardPlayer({
             className={`ap-sea${isActive ? " ap-sea--active" : ""}${className ? ` ${className}` : ""}`}
             style={{ ...buildThemeVars(theme), ...style }}
         >
-            <div className="ap-sea__art" style={{ backgroundImage: art }} aria-hidden="true">
+            {/* No aria-hidden here: the container holds focusable controls (play +
+                wave trigger), which must stay in the accessibility tree. The art
+                itself is a decorative empty div with no accessible name. */}
+            <div className="ap-sea__art" style={{ backgroundImage: art }}>
                 <button
                     type="button"
                     className="ap-btn ap-btn--play ap-sea__play ap-tap"
@@ -173,6 +176,14 @@ export function SeaCardPlayer({
                             peaks={track.peaks}
                             peaksDuration={track.waveformDuration}
                             getDecodedData={s.getDecodedData}
+                            // The overlay is user-initiated, so the fetch+decode
+                            // fallback (html5 only) is acceptable when a track has
+                            // no precomputed peaks; webaudio supplies decoded PCM.
+                            url={
+                                s.getBackendInfo().active === "html5"
+                                    ? track.audioFile
+                                    : undefined
+                            }
                             sourceKey={trackKey(track)}
                         />
                     </div>

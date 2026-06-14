@@ -119,11 +119,17 @@ export function SeaCardPlayer({
                 render the stable mount point here. It stays collapsed (no opener:
                 the card itself is tap-to-play and this face has no contextual
                 menu by design), serving as the plugin mount target until a future
-                phase adds a card-level affordance to open it. */}
+                phase adds a card-level affordance to open it.
+
+                Gated on `isActive`: many SeaCards render at once (a marketplace
+                grid), but only the active card represents the playing track. The
+                host early-returns on `!supported`, so exactly one live
+                `[data-sei-canvas-host]` mount point exists — a plugin can never
+                bind to an inactive card. */}
             <SEICanvasHost
                 open={surface.isCanvasOpen}
                 face="seaCard"
-                supported={surface.canvasSupported}
+                supported={isActive && surface.canvasSupported}
                 activeSurfaceId={surface.mode === "default" ? undefined : surface.mode}
             />
         </article>
